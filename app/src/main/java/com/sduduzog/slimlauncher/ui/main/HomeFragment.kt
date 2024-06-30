@@ -11,6 +11,8 @@ import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.UserManager
 import android.provider.AlarmClock
 import android.provider.CalendarContract
@@ -37,6 +39,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.jkuester.unlauncher.datastore.ClockType
 import com.jkuester.unlauncher.datastore.SearchBarPosition
 import com.jkuester.unlauncher.datastore.UnlauncherApp
+import com.sduduzog.slimlauncher.MainActivity
 import com.sduduzog.slimlauncher.R
 import com.sduduzog.slimlauncher.adapters.AppDrawerAdapter
 import com.sduduzog.slimlauncher.adapters.HomeAdapter
@@ -60,6 +63,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 private const val APP_TILE_SIZE: Int = 3
+private const val INVOCATION_MAX = 32
+private const val INVOCATION_DELAY: Long = 5_000
 
 @AndroidEntryPoint
 class HomeFragment : BaseFragment(), OnLaunchAppListener {
@@ -483,9 +488,58 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
 
         fun onAppClicked(app: UnlauncherApp) {
-            launchApp(app.packageName, app.className, app.userSerial)
             val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
-            homeFragment.transitionToStart()
+
+            // schizophrenia
+            val lowercasePackageName = app.packageName.lowercase()
+            if (lowercasePackageName.contains("instagram") || lowercasePackageName.contains("newpipe")) {
+                val mayaImageView = (activity as MainActivity).mayaImageView!!
+                val mayaExitButton = (activity as MainActivity).mayaExitButton!!
+                mayaImageView.visibility = View.VISIBLE
+                mayaExitButton.visibility = View.VISIBLE
+
+                Toast.makeText(context, "launching forbidden application...", Toast.LENGTH_LONG).show()
+                homeFragment.transitionToStart()
+
+                var continueInvocation = true
+                mayaExitButton.setOnClickListener {
+                    if (continueInvocation) {
+                        Toast.makeText(context, "you will be free...", Toast.LENGTH_SHORT).show()
+                        continueInvocation = false
+                    }
+                }
+
+                var i = 0
+                val handler = Handler(Looper.getMainLooper())
+                handler.postDelayed(object : Runnable {
+                    override fun run() {
+                        if (i++ < INVOCATION_MAX) {
+                            if (continueInvocation) {
+                                handler.postDelayed(this, INVOCATION_DELAY)
+                                Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
+                            }
+                            else {
+                                // cancel
+                                mayaImageView.visibility = View.INVISIBLE
+                                mayaExitButton.visibility = View.INVISIBLE
+                                Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
+                            }
+                            return
+                        }
+
+                        mayaImageView.visibility = View.INVISIBLE
+                        mayaExitButton.visibility = View.INVISIBLE
+
+                        launchApp(app.packageName, app.className, app.userSerial)
+                        homeFragment.transitionToStart()
+                    }
+                }, INVOCATION_DELAY)
+            }
+
+            else {
+                launchApp(app.packageName, app.className, app.userSerial)
+                homeFragment.transitionToStart()
+            }
         }
     }
 }

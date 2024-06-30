@@ -10,6 +10,8 @@ import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.MotionEvent
 import android.view.View
+import android.widget.ImageButton
+import android.widget.ImageView
 import androidx.annotation.StyleRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.motion.widget.MotionLayout
@@ -43,6 +45,9 @@ class MainActivity :
     private lateinit var navigator: NavController
     private lateinit var homeWatcher: HomeWatcher
 
+    var mayaImageView: ImageView? = null
+    var mayaExitButton: ImageButton? = null
+
     private val subscribers: MutableSet<BaseFragment> = mutableSetOf()
 
     override fun attachSubscriber(s: ISubscriber) {
@@ -70,6 +75,11 @@ class MainActivity :
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.main_activity)
+
+        // absurd spaghetti code
+        mayaImageView = findViewById(R.id.maya_image_view)
+        mayaExitButton = findViewById(R.id.maya_exit_button)
+
         settings = getSharedPreferences(getString(R.string.prefs_settings), MODE_PRIVATE)
         settings.registerOnSharedPreferenceChangeListener(this)
         val navHostFragment = supportFragmentManager.findFragmentById(
@@ -82,6 +92,7 @@ class MainActivity :
 
     override fun onResume() {
         super.onResume()
+        @Suppress("DEPRECATION")
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         systemUiManager.setSystemUiVisibility()
     }

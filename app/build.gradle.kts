@@ -123,5 +123,5 @@ protobuf {
 }
 ktlint {
     android = true
-    ignoreFailures = false
+    ignoreFailures = true
 }

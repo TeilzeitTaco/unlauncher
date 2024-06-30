@@ -7,7 +7,6 @@
     android:layout_marginEnd="@dimen/margin_sides_small"
     tools:showIn="@layout/home_fragment_default">
 
-
     <EditText
         android:id="@+id/app_drawer_edit_text"
         android:padding="@dimen/padding"
