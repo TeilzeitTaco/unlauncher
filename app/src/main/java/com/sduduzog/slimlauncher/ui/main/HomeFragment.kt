@@ -8,10 +8,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.content.pm.LauncherApps
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
 import android.os.UserManager
 import android.provider.AlarmClock
@@ -40,6 +42,7 @@ import com.jkuester.unlauncher.datastore.ClockType
 import com.jkuester.unlauncher.datastore.SearchBarPosition
 import com.jkuester.unlauncher.datastore.UnlauncherApp
 import com.sduduzog.slimlauncher.MainActivity
+import com.sduduzog.slimlauncher.OverlayService
 import com.sduduzog.slimlauncher.R
 import com.sduduzog.slimlauncher.adapters.AppDrawerAdapter
 import com.sduduzog.slimlauncher.adapters.HomeAdapter
@@ -493,10 +496,13 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             // schizophrenia
             val lowercasePackageName = app.packageName.lowercase()
             if (lowercasePackageName.contains("instagram") || lowercasePackageName.contains("newpipe")) {
-                val mayaImageView = (activity as MainActivity).mayaImageView!!
-                val mayaExitButton = (activity as MainActivity).mayaExitButton!!
+                val mainActivity = activity as MainActivity
+                val mayaImageView = mainActivity.mayaImageView!!
+                val mayaExitButton = mainActivity.mayaExitButton!!
+                val mayaTextView = mainActivity.mayaTextView!!
                 mayaImageView.visibility = View.VISIBLE
                 mayaExitButton.visibility = View.VISIBLE
+                mayaTextView.visibility = View.VISIBLE
 
                 Toast.makeText(context, "launching forbidden application...", Toast.LENGTH_LONG).show()
                 homeFragment.transitionToStart()
@@ -522,6 +528,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                                 // cancel
                                 mayaImageView.visibility = View.INVISIBLE
                                 mayaExitButton.visibility = View.INVISIBLE
+                                mayaTextView.visibility = View.INVISIBLE
                                 Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
                             }
                             return
@@ -529,6 +536,16 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
                         mayaImageView.visibility = View.INVISIBLE
                         mayaExitButton.visibility = View.INVISIBLE
+                        mayaTextView.visibility = View.INVISIBLE
+
+                        requireContext().bindService(Intent(context, OverlayService::class.java), object : ServiceConnection {
+                            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                                (service as OverlayService.OverlayServiceBinder).activateOverlay()
+                            }
+
+                            override fun onServiceDisconnected(name: ComponentName?) {
+                            }
+                        }, 0)
 
                         launchApp(app.packageName, app.className, app.userSerial)
                         homeFragment.transitionToStart()

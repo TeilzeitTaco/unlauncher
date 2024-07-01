@@ -33,11 +33,28 @@
             android:id="@+id/maya_exit_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="64dp"
+            android:layout_marginBottom="46dp"
             android:visibility="invisible"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:srcCompat="@android:drawable/ic_dialog_alert" />
+
+        <TextView
+            android:id="@+id/maya_text_view"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="48dp"
+            android:fontFamily="serif"
+            android:text="you are not Free..."
+            android:textAlignment="center"
+            android:textAllCaps="true"
+            android:textColor="#D50000"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:visibility="invisible"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </merge>

@@ -1,20 +1,40 @@
 package com.sduduzog.slimlauncher
 
 import android.annotation.SuppressLint
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.app.usage.UsageStats
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.res.Resources
+import android.graphics.Color
+import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.net.Uri
+import android.os.Binder
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.provider.Settings
 import android.util.Log
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.annotation.StyleRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.motion.widget.MotionLayout
+import androidx.core.app.NotificationCompat
 import androidx.navigation.NavController
 import androidx.navigation.Navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
@@ -27,8 +47,13 @@ import com.sduduzog.slimlauncher.utils.SystemUiManager
 import com.sduduzog.slimlauncher.utils.WallpaperManager
 import dagger.hilt.android.AndroidEntryPoint
 import java.lang.reflect.Method
+import java.util.SortedMap
+import java.util.TreeMap
 import javax.inject.Inject
 import kotlin.math.absoluteValue
+import kotlin.math.min
+
+private const val TAG = "DEMAYA"
 
 @AndroidEntryPoint
 class MainActivity :
@@ -47,6 +72,7 @@ class MainActivity :
 
     var mayaImageView: ImageView? = null
     var mayaExitButton: ImageButton? = null
+    var mayaTextView: TextView? = null
 
     private val subscribers: MutableSet<BaseFragment> = mutableSetOf()
 
@@ -79,6 +105,7 @@ class MainActivity :
         // absurd spaghetti code
         mayaImageView = findViewById(R.id.maya_image_view)
         mayaExitButton = findViewById(R.id.maya_exit_button)
+        mayaTextView = findViewById(R.id.maya_text_view)
 
         settings = getSharedPreferences(getString(R.string.prefs_settings), MODE_PRIVATE)
         settings.registerOnSharedPreferenceChangeListener(this)
@@ -88,6 +115,13 @@ class MainActivity :
         navigator = navHostFragment.navController
         homeWatcher = HomeWatcher.createInstance(this)
         homeWatcher.setOnHomePressedListener(this)
+
+        // get permissions & start overlay service
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Log.d(TAG, "ACTION_USAGE_ACCESS_SETTINGS")
+            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            maybeStartService()
+        }
     }
 
     override fun onResume() {
@@ -95,6 +129,9 @@ class MainActivity :
         @Suppress("DEPRECATION")
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         systemUiManager.setSystemUiVisibility()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            maybeStartService()
+        }
     }
 
     override fun onStart() {
@@ -252,4 +289,123 @@ class MainActivity :
             )
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun maybeStartService() {
+        if (!Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            Log.d(TAG, "ACTION_MANAGE_OVERLAY_PERMISSION")
+            startActivity(intent)
+        }
+
+        else {
+            Log.d(TAG, "Demaya running")
+            startService(Intent(this, OverlayService::class.java))
+        }
+    }
+}
+
+private const val CHANNEL_ID = "Demaya Channel"
+
+
+class OverlayService : Service() {
+    var view: TextView? = null
+
+    inner class OverlayServiceBinder : Binder() {
+        fun activateOverlay() {
+            Log.d(TAG, "activateOverlay")
+            view!!.also {
+                it.visibility = View.VISIBLE
+                it.alpha = 0f
+            }
+
+            val handler = Handler(this@OverlayService.mainLooper)
+            handler.postDelayed(object : Runnable {
+                @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
+                override fun run() {
+                    val foregroundApp = appInForeground(this@OverlayService).lowercase()
+                    if (!(foregroundApp.contains("instagram") || foregroundApp.contains("newpipe"))) {
+                        view!!.visibility = View.INVISIBLE
+                    }
+
+                    else {
+                        view!!.alpha = min(view!!.alpha + 0.0003f, 1f)
+                        view!!.text = (0..6000).map { "草半豆東亭種婆的躲更蛋地才細水連葉花升".random() }.joinToString(separator = "", prefix = "")
+                        handler.postDelayed(this, 25)
+                    }
+                }
+            }, 10_000)
+        }
+    }
+
+    override fun onBind(p0: Intent?) = OverlayServiceBinder()
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        view?.alpha = 0f
+        view?.visibility = View.INVISIBLE
+        view?.setBackgroundColor(Color.RED)
+        view?.setTextColor(Color.BLACK)
+        view?.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+        view?.textSize = 32F
+        return START_STICKY
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onCreate() {
+        super.onCreate()
+
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel = NotificationChannel(
+                CHANNEL_ID, "Overlay notification",
+                NotificationManager.IMPORTANCE_LOW
+            )
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+                .createNotificationChannel(channel)
+            val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("Demaya")
+                .setContentText("Working to get you out...")
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
+                .build()
+
+            startForeground(1, notification)
+        }
+
+        view = TextView(this.applicationContext)
+
+        // https://developer.android.com/about/versions/12/behavior-changes-all?hl=de#untrusted-touch-events-affected-apps
+        // https://www.reddit.com/r/tasker/comments/xkhm3q/overlay_scene_is_always_transparent/
+        // adb shell settings put global maximum_obscuring_opacity_for_touch 1
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else
+                WindowManager.LayoutParams.TYPE_PHONE
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            type,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.RGBA_8888
+        ).also {
+            it.gravity = Gravity.START or Gravity.TOP
+            it.x = 0
+            it.y = 0
+        }
+
+        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        wm.addView(view, params)
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
+fun appInForeground(context: Context): String {
+    val time = System.currentTimeMillis()
+    val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    val appList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, time - 1000 * 1000, time)!!
+    val mySortedMap: SortedMap<Long, UsageStats> = TreeMap()
+    for (usageStats in appList) {
+        mySortedMap[usageStats.lastTimeUsed] = usageStats
+    }
+    return mySortedMap[mySortedMap.lastKey()]!!.packageName
 }
