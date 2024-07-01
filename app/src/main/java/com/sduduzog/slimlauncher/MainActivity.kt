@@ -312,28 +312,40 @@ private const val CHANNEL_ID = "Demaya Channel"
 
 
 class OverlayService : Service() {
-    var view: TextView? = null
+    private var view: TextView? = null
 
     inner class OverlayServiceBinder : Binder() {
         fun activateOverlay() {
             Log.d(TAG, "activateOverlay")
-            view!!.also {
-                it.visibility = View.VISIBLE
-                it.alpha = 0f
-            }
-
             val handler = Handler(this@OverlayService.mainLooper)
             handler.postDelayed(object : Runnable {
+                private var resume = 0
+                private var resumeAlpha = 0f
+
                 @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
                 override fun run() {
                     val foregroundApp = appInForeground(this@OverlayService).lowercase()
                     if (!(foregroundApp.contains("instagram") || foregroundApp.contains("newpipe"))) {
+                        // user exited blasphemous app
                         view!!.visibility = View.INVISIBLE
+                        if (resume++ < 250) {
+                            // check less frequently for a while afterwards,
+                            // to prevent home/reopen via tray cheese
+                            Log.d(TAG, "resume $resume")
+                            handler.postDelayed(this, 2_500)
+                        }
                     }
 
                     else {
-                        view!!.alpha = min(view!!.alpha + 0.0003f, 1f)
-                        view!!.text = (0..6000).map { "草半豆東亭種婆的躲更蛋地才細水連葉花升".random() }.joinToString(separator = "", prefix = "")
+                        resume = 0
+                        view!!.visibility = View.VISIBLE
+                        view!!.alpha = min(resumeAlpha + 0.000_3f, 1f).also {
+                            resumeAlpha = it
+                        }
+
+                        view!!.text = (0..6000).map {
+                            "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
+                        }.joinToString(separator = "", prefix = "")
                         handler.postDelayed(this, 25)
                     }
                 }
