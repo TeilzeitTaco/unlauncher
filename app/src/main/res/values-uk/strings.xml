@@ -29,6 +29,8 @@
         <item>День</item>
         <item>Влад</item>
         <item>Грув</item>
+        <item>Flesh-Network</item>
+
     </string-array>
     <string-array name="time_format_array">
         <item>Системний</item>

@@ -45,5 +45,9 @@
     <color name="darkPrimaryColor">@android:color/black</color>
     <color name="lightPrimaryColor">@android:color/white</color>
 
-
+    <!-- flesh network theme -->
+    <color name="fnBrightRed">#FF0606</color>
+    <color name="fnDarkRed">#970303</color>
+    <color name="fnOtherRed">#97034F</color>
+    <color name="fnBlack">#000000</color>
 </resources>

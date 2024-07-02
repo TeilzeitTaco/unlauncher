@@ -23,6 +23,8 @@
         <item>Mittag</item>
         <item>Vlad</item>
         <item>Groovig</item>
+        <item>Flesh-Network</item>
+
     </string-array>
     <string-array name="time_format_array">
         <item>Systemvorgabe</item>

@@ -204,6 +204,7 @@ class MainActivity :
                 6 -> R.style.AppThemeLight
                 7 -> R.style.AppDarculaTheme
                 8 -> R.style.AppGruvBoxDarkTheme
+                9 -> R.style.AppFleshNetworkTheme
                 else -> R.style.AppTheme
             }
         }
@@ -313,55 +314,68 @@ private const val CHANNEL_ID = "Demaya Channel"
 
 class OverlayService : Service() {
     private var view: TextView? = null
+    private var backgroundCheckRunning = true
 
     inner class OverlayServiceBinder : Binder() {
+        var backgroundCheck by ::backgroundCheckRunning
+
+        @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
         fun activateOverlay() {
             Log.d(TAG, "activateOverlay")
+
             val handler = Handler(this@OverlayService.mainLooper)
-            handler.postDelayed(object : Runnable {
+            object : Runnable {
                 private var resume = 0
                 private var resumeAlpha = 0f
 
-                @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
                 override fun run() {
+                    if (!backgroundCheckRunning) {
+                        Log.d(TAG, "!backgroundCheckRunning")
+                        return
+                    }
+
                     val foregroundApp = appInForeground(this@OverlayService).lowercase()
                     if (!(foregroundApp.contains("instagram") || foregroundApp.contains("newpipe"))) {
                         // user exited blasphemous app
                         view!!.visibility = View.INVISIBLE
-                        if (resume++ < 250) {
+                        if (resume++ < 200) {
                             // check less frequently for a while afterwards,
                             // to prevent home/reopen via tray cheese
                             Log.d(TAG, "resume $resume")
                             handler.postDelayed(this, 2_500)
-                        }
+                        }  // else don't post
                     }
 
                     else {
                         resume = 0
-                        view!!.visibility = View.VISIBLE
-                        view!!.alpha = min(resumeAlpha + 0.000_3f, 1f).also {
-                            resumeAlpha = it
+                        view!!.apply {
+                            visibility = View.VISIBLE
+                            alpha = min(resumeAlpha + 0.000_3f, 1f).also {
+                                resumeAlpha = it
+                            }
+                            text = (0..6000).map {
+                                "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
+                            }.joinToString(separator = "", prefix = "")
                         }
 
-                        view!!.text = (0..6000).map {
-                            "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
-                        }.joinToString(separator = "", prefix = "")
                         handler.postDelayed(this, 25)
                     }
                 }
-            }, 10_000)
+            }.run()
         }
     }
 
     override fun onBind(p0: Intent?) = OverlayServiceBinder()
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        view?.alpha = 0f
-        view?.visibility = View.INVISIBLE
-        view?.setBackgroundColor(Color.RED)
-        view?.setTextColor(Color.BLACK)
-        view?.textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-        view?.textSize = 32F
+        view?.apply {
+            alpha = 0f
+            visibility = View.INVISIBLE
+            setBackgroundColor(Color.RED)
+            setTextColor(Color.BLACK)
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            textSize = 32F
+        }
         return START_STICKY
     }
 
@@ -399,10 +413,10 @@ class OverlayService : Service() {
             type,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.RGBA_8888
-        ).also {
-            it.gravity = Gravity.START or Gravity.TOP
-            it.x = 0
-            it.y = 0
+        ).apply {
+            gravity = Gravity.START or Gravity.TOP
+            x = 0
+            y = 0
         }
 
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager

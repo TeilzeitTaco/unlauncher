@@ -58,6 +58,19 @@
         <item name="android:navigationBarColor">@color/colorGunmetal</item>
     </style>
 
+    <style name="AppFleshNetworkTheme" parent="AppThemeDark">
+        <item name="headerTextColor">@color/fnBrightRed</item>
+        <item name="colorPrimary">@color/fnBlack</item>
+        <item name="colorPrimaryDark">@color/colorOuterSpace</item>
+        <item name="android:colorBackground">@color/fnBlack</item>
+        <item name="colorAccent">@color/fnDarkRed</item>
+        <item name="android:textColor">@color/fnDarkRed</item>
+        <item name="android:colorForeground">@color/fnDarkRed</item>
+        <item name="android:textColorHint">@color/fnBrightRed</item>
+        <item name="android:navigationBarColor">@color/fnOtherRed</item>
+        <item name="android:fontFamily">@font/jmh_typewriter</item>
+    </style>
+
     <style name="AppGruvBoxDarkTheme" parent="AppThemeDark">
         <item name="headerTextColor">@color/colorAcidGreen</item>
         <item name="switchTextColor">@color/colorCookiesAndCream</item>

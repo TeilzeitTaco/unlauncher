@@ -11,6 +11,8 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.LauncherApps
 import android.net.Uri
+import android.opengl.Visibility
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
@@ -32,6 +34,7 @@ import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
+import androidx.annotation.RequiresApi
 import androidx.constraintlayout.motion.widget.MotionLayout
 import androidx.constraintlayout.motion.widget.MotionLayout.TransitionListener
 import androidx.fragment.app.viewModels
@@ -64,6 +67,7 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 private const val APP_TILE_SIZE: Int = 3
 private const val INVOCATION_MAX = 32
@@ -436,7 +440,6 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             hideUninstallOptionIfSystemApp(app, popupMenu)
 
             popupMenu.setOnMenuItemClickListener { item: MenuItem? ->
-
                 when (item!!.itemId) {
                     R.id.open -> {
                         onAppClicked(app)
@@ -500,10 +503,13 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 val mayaImageView = mainActivity.mayaImageView!!
                 val mayaExitButton = mainActivity.mayaExitButton!!
                 val mayaTextView = mainActivity.mayaTextView!!
-                mayaImageView.visibility = View.VISIBLE
-                mayaExitButton.visibility = View.VISIBLE
-                mayaTextView.visibility = View.VISIBLE
+                fun setBlockerVisibility(visibility: Int) {
+                    mayaImageView.visibility = visibility
+                    mayaExitButton.visibility = visibility
+                    mayaTextView.visibility = visibility
+                }
 
+                setBlockerVisibility(View.VISIBLE)
                 Toast.makeText(context, "launching forbidden application...", Toast.LENGTH_LONG).show()
                 homeFragment.transitionToStart()
 
@@ -521,32 +527,46 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                     override fun run() {
                         if (i++ < INVOCATION_MAX) {
                             if (continueInvocation) {
-                                handler.postDelayed(this, INVOCATION_DELAY)
+                                handler.postDelayed(this, INVOCATION_DELAY + (i * 25))
                                 Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
                             }
                             else {
                                 // cancel
-                                mayaImageView.visibility = View.INVISIBLE
-                                mayaExitButton.visibility = View.INVISIBLE
-                                mayaTextView.visibility = View.INVISIBLE
+                                setBlockerVisibility(View.INVISIBLE)
                                 Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
                             }
                             return
                         }
 
-                        mayaImageView.visibility = View.INVISIBLE
-                        mayaExitButton.visibility = View.INVISIBLE
-                        mayaTextView.visibility = View.INVISIBLE
+                        // hide goddess
+                        setBlockerVisibility(View.INVISIBLE)
 
+                        // be annoying
+                        if (Random.nextFloat() < 0.3f) {
+                            Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
+                            return
+                        }
+
+                        // start brainrot
                         requireContext().bindService(Intent(context, OverlayService::class.java), object : ServiceConnection {
+                            @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
                             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                                (service as OverlayService.OverlayServiceBinder).activateOverlay()
+                                (service as OverlayService.OverlayServiceBinder).also {
+                                    Toast.makeText(context, "decay...", Toast.LENGTH_LONG).show()
+
+                                    // this kills the potentially running old postDelayed() loop.
+                                    it.backgroundCheck = false
+                                    handler.postDelayed({
+                                        it.backgroundCheck = true
+                                        it.activateOverlay()
+                                    }, 5_000 /* must be longer than background check */)
+                                }
                             }
 
-                            override fun onServiceDisconnected(name: ComponentName?) {
-                            }
+                            override fun onServiceDisconnected(name: ComponentName?) = Unit
                         }, 0)
 
+                        // launch blasphemous app
                         launchApp(app.packageName, app.className, app.userSerial)
                         homeFragment.transitionToStart()
                     }

@@ -37,6 +37,7 @@
         <item>Noon</item>
         <item>Vlad</item>
         <item>Groovy</item>
+        <item>Flesh-Network</item>
     </string-array>
     <string-array name="time_format_array">
         <item>Follow system settings</item>
