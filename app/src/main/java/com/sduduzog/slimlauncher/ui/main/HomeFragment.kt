@@ -59,6 +59,7 @@ import com.sduduzog.slimlauncher.models.MainViewModel
 import com.sduduzog.slimlauncher.ui.dialogs.RenameAppDisplayNameDialog
 import com.sduduzog.slimlauncher.utils.BaseFragment
 import com.sduduzog.slimlauncher.utils.OnLaunchAppListener
+import com.sduduzog.slimlauncher.utils.gravity
 import com.sduduzog.slimlauncher.utils.isSystemApp
 import dagger.hilt.android.AndroidEntryPoint
 import java.text.SimpleDateFormat
@@ -286,6 +287,11 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         homeFragmentContent.appDrawerEditText.addTextChangedListener(
             appDrawerAdapter.searchBoxListener
         )
+
+        // apply gravity to search box
+        unlauncherDataSource.corePreferencesRepo.liveData().observe(viewLifecycleOwner) { corePrefs ->
+            homeFragmentContent.appDrawerEditText.gravity = corePrefs.alignmentFormat.gravity()
+        }
 
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         homeFragmentContent.appDrawerEditText.setOnEditorActionListener { _, actionId, _ ->

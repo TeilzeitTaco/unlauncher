@@ -41,14 +41,14 @@ class AddAppFragment : BaseFragment(), OnAppClickedListener {
         val addAppFragment = AddAppFragmentBinding.bind(requireView())
         addAppFragment.addAppFragmentList.adapter = adapter
 
-        viewModel.apps.observe(viewLifecycleOwner, {
+        viewModel.apps.observe(viewLifecycleOwner) {
             it?.let { apps ->
                 adapter.setItems(apps)
                 addAppFragment.addAppFragmentProgressBar.visibility = View.GONE
             } ?: run {
                 addAppFragment.addAppFragmentProgressBar.visibility = View.VISIBLE
             }
-        })
+        }
     }
 
     override fun onResume() {

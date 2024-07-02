@@ -338,9 +338,11 @@ class OverlayService : Service() {
                     if (!(foregroundApp.contains("instagram") || foregroundApp.contains("newpipe"))) {
                         // user exited blasphemous app
                         view!!.visibility = View.INVISIBLE
-                        if (resume++ < 200) {
+                        if (resume++ < 350) {
                             // check less frequently for a while afterwards,
-                            // to prevent home/reopen via tray cheese
+                            // to prevent home/reopen via tray cheese. But this
+                            // is a bit... meh, for I often watch videos > 45 minutes,
+                            // which allows me to cheese it anyways.
                             Log.d(TAG, "resume $resume")
                             handler.postDelayed(this, 2_500)
                         }  // else don't post
