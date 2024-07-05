@@ -337,13 +337,15 @@ class OverlayService : AccessibilityService() {
 
         private var running = false
         fun isRunning() = running
+
+        var onAppSwitchtedListener: Runnable? = null
     }
 
     private val updateHandler = Handler(Looper.getMainLooper())
     inner class OverlayUpdater : Runnable {
         var stop = false
         override fun run() {
-            resumeAlpha = min(resumeAlpha + 0.000_4f, 1f)
+            resumeAlpha = min(resumeAlpha + 0.000_25f, 1f)
             view.alpha = resumeAlpha
             view.text = (0..6000).map {
                 "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
@@ -367,6 +369,8 @@ class OverlayService : AccessibilityService() {
             event.packageName.equals("com.jkuester.unlauncher")) {
             return  // keyboard etc.
         }
+
+        onAppSwitchtedListener?.run()
 
         val forbidden = isForbiddenApp(event.packageName.toString())
         Log.d(S_TAG, "packageName: ${event.packageName}, forbidden: $forbidden, ${event.eventTime}")

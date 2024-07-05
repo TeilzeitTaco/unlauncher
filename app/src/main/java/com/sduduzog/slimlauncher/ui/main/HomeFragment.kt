@@ -539,6 +539,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 }
 
                 var i = 0
+                var invocationFailRate = 0.20f
+                OverlayService.onAppSwitchtedListener = Runnable { invocationFailRate += 0.15f }  // slightly punish user for not waiting at home screen
                 handler.postDelayed(object : Runnable {
                     override fun run() {
                         if (i++ < INVOCATION_MAX) {
@@ -558,7 +560,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                         setBlockerVisibility(View.INVISIBLE)
 
                         // be annoying
-                        if (Random.nextFloat() < 0.20f) {
+                        if (Random.nextFloat() < invocationFailRate) {
                             Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
                             return
                         }
@@ -576,7 +578,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
             else {
                 appsClickable = false
-                Toast.makeText(context, "launching ${app.packageName}...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "invoking ${app.packageName}...", Toast.LENGTH_SHORT).show()
                 homeFragment.transitionToStart()
                 handler.postDelayed({
                     Toast.makeText(context, "take care...", Toast.LENGTH_LONG).show()
