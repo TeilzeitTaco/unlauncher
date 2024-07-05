@@ -1,6 +1,9 @@
 package com.sduduzog.slimlauncher
 
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -19,6 +22,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.view.GestureDetector
@@ -27,6 +31,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -309,68 +314,92 @@ class MainActivity :
     }
 }
 
-private const val CHANNEL_ID = "Demaya Channel"
+
+private val forbiddenPackageNames = arrayListOf("com.tinder", "com.instagram.android", "org.schabi.newpipe", "co.hinge.app", "com.bumble.app")
+fun isForbiddenApp(packageName: String): Boolean {
+    return forbiddenPackageNames.contains(packageName)
+}
 
 
-class OverlayService : Service() {
-    private var view: TextView? = null
-    private var backgroundCheckRunning = true
+private const val S_TAG = "DEMAYA_SERVICE"
 
-    inner class OverlayServiceBinder : Binder() {
-        var backgroundCheck by ::backgroundCheckRunning
+class OverlayService : AccessibilityService() {
+    private lateinit var keyguardManager: KeyguardManager
+    private lateinit var view: TextView
 
-        @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
-        fun activateOverlay() {
-            Log.d(TAG, "activateOverlay")
+    companion object {
+        private var resumeAlpha = 0f
+        private var allowedPackage: String? = null
+        fun resetTimer(forPackage: String) {
+            allowedPackage = forPackage
+            resumeAlpha = 0f
+        }
 
-            val handler = Handler(this@OverlayService.mainLooper)
-            object : Runnable {
-                private var resume = 0
-                private var resumeAlpha = 0f
+        private var running = false
+        fun isRunning() = running
+    }
 
-                override fun run() {
-                    if (!backgroundCheckRunning) {
-                        Log.d(TAG, "!backgroundCheckRunning")
-                        return
-                    }
+    private val updateHandler = Handler(Looper.getMainLooper())
+    inner class OverlayUpdater : Runnable {
+        var stop = false
+        override fun run() {
+            resumeAlpha = min(resumeAlpha + 0.001f, 1f)
+            view.alpha = resumeAlpha
+            view.text = (0..6000).map {
+                "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
+            }.joinToString(separator = "", prefix = "")
+            if (keyguardManager.isDeviceLocked) {
+                view.visibility = View.INVISIBLE
+                stop = true
+            }
+            if (!stop) {
+                updateHandler.postDelayed(this, 25)
+            }
+        }
+    }
+    private var lastOverlayUpdater: OverlayUpdater? = null
 
-                    val foregroundApp = appInForeground(this@OverlayService).lowercase()
-                    if (!(foregroundApp.contains("instagram") || foregroundApp.contains("newpipe"))) {
-                        // user exited blasphemous app
-                        view!!.visibility = View.INVISIBLE
-                        if (resume++ < 350) {
-                            // check less frequently for a while afterwards,
-                            // to prevent home/reopen via tray cheese. But this
-                            // is a bit... meh, for I often watch videos > 45 minutes,
-                            // which allows me to cheese it anyways.
-                            Log.d(TAG, "resume $resume")
-                            handler.postDelayed(this, 2_500)
-                        }  // else don't post
-                    }
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        event?.packageName ?: return
+        if (event.packageName.toString().contains("inputmethod") ||
+            event.packageName.toString().contains("system") ||
+            event.packageName.equals("com.jkuester.unlauncher")) {
+            return  // keyboard etc.
+        }
 
-                    else {
-                        resume = 0
-                        view!!.apply {
-                            visibility = View.VISIBLE
-                            alpha = min(resumeAlpha + 0.000_3f, 1f).also {
-                                resumeAlpha = it
-                            }
-                            text = (0..6000).map {
-                                "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
-                            }.joinToString(separator = "", prefix = "")
-                        }
+        val forbidden = isForbiddenApp(event.packageName.toString())
+        Log.d(S_TAG, "packageName: ${event.packageName}, forbidden: $forbidden, ${event.eventTime}")
+        if (forbidden) {
+            view.visibility = View.VISIBLE
+            if (allowedPackage != null && event.packageName.toString() != allowedPackage) {
+                // no cheating! user opened e.g. instagram, and then switched to newpipe via tray.
+                resumeAlpha = 1f
+            }
 
-                        handler.postDelayed(this, 25)
-                    }
+            if (lastOverlayUpdater == null || lastOverlayUpdater?.stop == true) {
+                lastOverlayUpdater = OverlayUpdater().also {
+                    updateHandler.post(it)
                 }
-            }.run()
+            }
+        } else {
+            lastOverlayUpdater?.stop = true
+            view.visibility = View.INVISIBLE
         }
     }
 
-    override fun onBind(p0: Intent?) = OverlayServiceBinder()
+    override fun onInterrupt() {
+    }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        view?.apply {
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        Log.d(S_TAG, super.toString())
+        running = true
+
+        keyguardManager = applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+
+        view = TextView(this.applicationContext).apply {
             alpha = 0f
             visibility = View.INVISIBLE
             setBackgroundColor(Color.RED)
@@ -378,41 +407,14 @@ class OverlayService : Service() {
             textAlignment = TextView.TEXT_ALIGNMENT_CENTER
             textSize = 32F
         }
-        return START_STICKY
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onCreate() {
-        super.onCreate()
-
-        if (Build.VERSION.SDK_INT >= 26) {
-            val channel = NotificationChannel(
-                CHANNEL_ID, "Overlay notification",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
-                .createNotificationChannel(channel)
-            val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Demaya")
-                .setContentText("Working to get you out...")
-                .setSmallIcon(R.drawable.ic_launcher_monochrome)
-                .build()
-
-            startForeground(1, notification)
-        }
-
-        view = TextView(this.applicationContext)
 
         // https://developer.android.com/about/versions/12/behavior-changes-all?hl=de#untrusted-touch-events-affected-apps
         // https://www.reddit.com/r/tasker/comments/xkhm3q/overlay_scene_is_always_transparent/
         // adb shell settings put global maximum_obscuring_opacity_for_touch 1
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY else
-                WindowManager.LayoutParams.TYPE_PHONE
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
-            type,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             PixelFormat.RGBA_8888
         ).apply {
@@ -421,19 +423,8 @@ class OverlayService : Service() {
             y = 0
         }
 
-        val wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        wm.addView(view, params)
+        (getSystemService(WINDOW_SERVICE) as WindowManager).apply {
+            addView(view, params)
+        }
     }
-}
-
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
-fun appInForeground(context: Context): String {
-    val time = System.currentTimeMillis()
-    val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-    val appList = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, time - 1000 * 1000, time)!!
-    val mySortedMap: SortedMap<Long, UsageStats> = TreeMap()
-    for (usageStats in appList) {
-        mySortedMap[usageStats.lastTimeUsed] = usageStats
-    }
-    return mySortedMap[mySortedMap.lastKey()]!!.packageName
 }

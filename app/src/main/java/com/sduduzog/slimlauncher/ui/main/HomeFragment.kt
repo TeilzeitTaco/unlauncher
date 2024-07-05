@@ -54,6 +54,7 @@ import com.sduduzog.slimlauncher.databinding.HomeFragmentContentBinding
 import com.sduduzog.slimlauncher.databinding.HomeFragmentDefaultBinding
 import com.sduduzog.slimlauncher.datasource.UnlauncherDataSource
 import com.sduduzog.slimlauncher.datasource.quickbuttonprefs.QuickButtonPreferencesRepository
+import com.sduduzog.slimlauncher.isForbiddenApp
 import com.sduduzog.slimlauncher.models.HomeApp
 import com.sduduzog.slimlauncher.models.MainViewModel
 import com.sduduzog.slimlauncher.ui.dialogs.RenameAppDisplayNameDialog
@@ -499,12 +500,22 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             }
         }
 
+        private var appsClickable = true
         fun onAppClicked(app: UnlauncherApp) {
+            if (!appsClickable) {
+                Toast.makeText(context, "we are already busy...", Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (!OverlayService.isRunning()) {
+                Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
+                return
+            }
+
             val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
+            val handler = Handler(Looper.getMainLooper())
 
             // schizophrenia
-            val lowercasePackageName = app.packageName.lowercase()
-            if (lowercasePackageName.contains("instagram") || lowercasePackageName.contains("newpipe")) {
+            if (isForbiddenApp(app.packageName)) {
                 val mainActivity = activity as MainActivity
                 val mayaImageView = mainActivity.mayaImageView!!
                 val mayaExitButton = mainActivity.mayaExitButton!!
@@ -528,12 +539,11 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 }
 
                 var i = 0
-                val handler = Handler(Looper.getMainLooper())
                 handler.postDelayed(object : Runnable {
                     override fun run() {
                         if (i++ < INVOCATION_MAX) {
                             if (continueInvocation) {
-                                handler.postDelayed(this, INVOCATION_DELAY + (i * 25))
+                                handler.postDelayed(this, INVOCATION_DELAY + (i * 40))
                                 Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
                             }
                             else {
@@ -548,29 +558,14 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                         setBlockerVisibility(View.INVISIBLE)
 
                         // be annoying
-                        if (Random.nextFloat() < 0.3f) {
+                        if (Random.nextFloat() < 0.20f) {
                             Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
                             return
                         }
 
                         // start brainrot
-                        requireContext().bindService(Intent(context, OverlayService::class.java), object : ServiceConnection {
-                            @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
-                            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                                (service as OverlayService.OverlayServiceBinder).also {
-                                    Toast.makeText(context, "decay...", Toast.LENGTH_LONG).show()
-
-                                    // this kills the potentially running old postDelayed() loop.
-                                    it.backgroundCheck = false
-                                    handler.postDelayed({
-                                        it.backgroundCheck = true
-                                        it.activateOverlay()
-                                    }, 5_000 /* must be longer than background check */)
-                                }
-                            }
-
-                            override fun onServiceDisconnected(name: ComponentName?) = Unit
-                        }, 0)
+                        OverlayService.resetTimer(app.packageName)
+                        Toast.makeText(context, "you will wither...", Toast.LENGTH_LONG).show()
 
                         // launch blasphemous app
                         launchApp(app.packageName, app.className, app.userSerial)
@@ -580,8 +575,16 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             }
 
             else {
-                launchApp(app.packageName, app.className, app.userSerial)
+                appsClickable = false
+                Toast.makeText(context, "launching ${app.packageName}...", Toast.LENGTH_SHORT).show()
                 homeFragment.transitionToStart()
+                handler.postDelayed({
+                    Toast.makeText(context, "take care...", Toast.LENGTH_LONG).show()
+                }, 4_000)
+                handler.postDelayed({
+                    appsClickable = true
+                    launchApp(app.packageName, app.className, app.userSerial)
+                }, 7_500)
             }
         }
     }
