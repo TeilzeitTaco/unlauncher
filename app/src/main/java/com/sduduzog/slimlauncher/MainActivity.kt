@@ -343,7 +343,7 @@ class OverlayService : AccessibilityService() {
     inner class OverlayUpdater : Runnable {
         var stop = false
         override fun run() {
-            resumeAlpha = min(resumeAlpha + 0.001f, 1f)
+            resumeAlpha = min(resumeAlpha + 0.000_4f, 1f)
             view.alpha = resumeAlpha
             view.text = (0..6000).map {
                 "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
