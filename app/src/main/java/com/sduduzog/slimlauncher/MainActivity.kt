@@ -1,15 +1,8 @@
 package com.sduduzog.slimlauncher
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
-import android.app.usage.UsageStats
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -17,9 +10,7 @@ import android.content.res.Resources
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
-import android.icu.text.DateFormat
 import android.net.Uri
-import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -40,7 +31,6 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.StyleRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.motion.widget.MotionLayout
-import androidx.core.app.NotificationCompat
 import androidx.navigation.NavController
 import androidx.navigation.Navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
@@ -53,15 +43,14 @@ import com.sduduzog.slimlauncher.utils.SystemUiManager
 import com.sduduzog.slimlauncher.utils.WallpaperManager
 import dagger.hilt.android.AndroidEntryPoint
 import java.lang.reflect.Method
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.SortedMap
-import java.util.TreeMap
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.math.absoluteValue
 import kotlin.math.min
 
 private const val TAG = "DEMAYA"
+private const val MAX_LOG_OCCURRENCES_FOR_SOFT_LOCK = 10
 
 @AndroidEntryPoint
 class MainActivity :
@@ -329,6 +318,27 @@ fun isForbiddenApp(packageName: String): Boolean {
     return forbiddenPackageNames.contains(packageName)
 }
 
+fun shouldBeSoftForbidden(packageName: String): Boolean {
+    if (packageName.contains("system") || packageName.contains("google") ||
+        packageName.contains("unlauncher") || packageName.contains("settings"))
+        return false  // never ban the launcher, lol
+
+    val now = Date()
+    return OverlayService.activityLog.count { m ->
+        (packageName == m.packageName) &&
+                TimeUnit.MILLISECONDS.toHours(now.time - m.date.time) < 12
+    } > MAX_LOG_OCCURRENCES_FOR_SOFT_LOCK
+}
+
+fun isForbiddenOrSoftForbiddenApp(packageName: String): Pair<Boolean, Boolean> {
+    val forbidden = isForbiddenApp(packageName)
+    var softForbidden = false
+    if (!forbidden) {
+        softForbidden = shouldBeSoftForbidden(packageName)
+    }
+    return Pair(forbidden || softForbidden, softForbidden)
+}
+
 
 private const val S_TAG = "DEMAYA_SERVICE"
 
@@ -388,7 +398,7 @@ class OverlayService : AccessibilityService() {
             activityLog.add(LogMessage(Date(), packageNameString))
         onAppSwitchedListener?.run()
 
-        val forbidden = isForbiddenApp(packageNameString)
+        val (forbidden, _) = isForbiddenOrSoftForbiddenApp(packageNameString)
         Log.d(S_TAG, "packageName: ${packageNameString}, forbidden: $forbidden, time: ${event.eventTime}")
         if (forbidden) {
             view.visibility = View.VISIBLE

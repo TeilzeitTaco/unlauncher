@@ -9,14 +9,11 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.ServiceConnection
 import android.content.pm.LauncherApps
 import android.net.Uri
-import android.opengl.Visibility
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
-import android.os.IBinder
 import android.os.Looper
 import android.os.UserManager
 import android.provider.AlarmClock
@@ -55,7 +52,7 @@ import com.sduduzog.slimlauncher.databinding.HomeFragmentContentBinding
 import com.sduduzog.slimlauncher.databinding.HomeFragmentDefaultBinding
 import com.sduduzog.slimlauncher.datasource.UnlauncherDataSource
 import com.sduduzog.slimlauncher.datasource.quickbuttonprefs.QuickButtonPreferencesRepository
-import com.sduduzog.slimlauncher.isForbiddenApp
+import com.sduduzog.slimlauncher.isForbiddenOrSoftForbiddenApp
 import com.sduduzog.slimlauncher.models.HomeApp
 import com.sduduzog.slimlauncher.models.MainViewModel
 import com.sduduzog.slimlauncher.ui.dialogs.RenameAppDisplayNameDialog
@@ -397,7 +394,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     override fun onLaunch(app: HomeApp, view: View) {
-        launchApp(app.packageName, app.activityName, app.userSerial)
+        // these are the apps on the home screen, not in the drawer
+        launchAppRestricted(app.packageName, app.activityName, app.userSerial)
     }
 
     override fun onBack(): Boolean {
@@ -434,10 +432,118 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     private fun resetAppDrawerEditText() {
-        val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
-        homeFragmentContent.appDrawerEditText.clearComposingText()
-        homeFragmentContent.appDrawerEditText.setText("")
-        homeFragmentContent.appDrawerEditText.clearFocus()
+        HomeFragmentContentBinding.bind(requireView()).appDrawerEditText.apply {
+            clearComposingText()
+            setText("")
+            clearFocus()
+        }
+    }
+
+    private var appsClickable = true
+    private fun launchAppRestricted(packageName: String, className: String, userSerial: Long) {
+        if (!appsClickable) {
+            Toast.makeText(context, "we are already busy...", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!OverlayService.isRunning()) {
+            Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
+        val handler = Handler(Looper.getMainLooper())
+
+        // schizophrenia
+        val (forbidden, wasSoftForbidden) = isForbiddenOrSoftForbiddenApp(packageName)
+        if (forbidden) {
+            val mainActivity = activity as MainActivity
+            val mayaImageView = mainActivity.mayaImageView!!
+            val mayaExitButton = mainActivity.mayaExitButton!!
+            val mayaTextView = mainActivity.mayaTextView!!
+            fun setBlockerVisibility(visibility: Int) {
+                mayaImageView.visibility = visibility
+                mayaExitButton.visibility = visibility
+                mayaTextView.visibility = visibility
+            }
+
+            setBlockerVisibility(View.VISIBLE)
+            Toast.makeText(context, if (wasSoftForbidden) "you've had too much..." else "launching forbidden application...", Toast.LENGTH_LONG).show()
+            homeFragment.transitionToStart()
+
+            var continueInvocation = true
+            mayaExitButton.setOnClickListener {
+                if (continueInvocation) {
+                    Toast.makeText(context, "you will be free...", Toast.LENGTH_SHORT).show()
+                    continueInvocation = false
+                }
+            }
+
+            var i = 0
+            var invocationFailRate = 0.17f
+            OverlayService.onAppSwitchedListener = Runnable { invocationFailRate += 0.0425f }  // slightly punish user for not waiting at home screen
+            handler.postDelayed(object : Runnable {
+                private val keyguardManager = requireContext()
+                    .getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+
+                @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
+                override fun run() {
+                    if (i++ < INVOCATION_MAX) {
+                        // screen locked, abort invocation
+                        if (keyguardManager.isDeviceLocked) {
+                            setBlockerVisibility(View.INVISIBLE)
+                            return
+                        }
+
+                        if (continueInvocation) {
+                            Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
+                            handler.postDelayed(this, INVOCATION_DELAY + (i * 30))
+                            return
+                        }
+
+                        // cancel
+                        setBlockerVisibility(View.INVISIBLE)
+                        Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
+                        return
+                    }
+
+                    Toast.makeText(context,
+                        "success rate: ${((1 - invocationFailRate) * 100).toString().split(".")[0]}%",
+                        Toast.LENGTH_LONG).show()
+
+                    handler.postDelayed({
+                        // hide goddess
+                        setBlockerVisibility(View.INVISIBLE)
+
+                        // be annoying
+                        if (Random.nextFloat() < invocationFailRate) {
+                            Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
+                            return@postDelayed
+                        }
+
+                        // start brainrot
+                        OverlayService.resetTimer(packageName)
+                        Toast.makeText(context, "you will wither...", Toast.LENGTH_LONG).show()
+
+                        // launch blasphemous app
+                        launchApp(packageName, className, userSerial)
+                        homeFragment.transitionToStart()
+                    }, 3_000)
+                }
+            }, INVOCATION_DELAY)
+        }
+
+        else {
+            appsClickable = false
+            Toast.makeText(context, "invoking ${packageName}...", Toast.LENGTH_SHORT).show()
+            homeFragment.transitionToStart()
+            handler.postDelayed({
+                Toast.makeText(context, "take care...", Toast.LENGTH_LONG).show()
+            }, 4_000)
+            handler.postDelayed({
+                appsClickable = true
+                launchApp(packageName, className, userSerial)
+            }, 7_500)
+        }
     }
 
     inner class AppDrawerListener {
@@ -501,110 +607,9 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             }
         }
 
-        private var appsClickable = true
         fun onAppClicked(app: UnlauncherApp) {
-            if (!appsClickable) {
-                Toast.makeText(context, "we are already busy...", Toast.LENGTH_SHORT).show()
-                return
-            }
-            if (!OverlayService.isRunning()) {
-                Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
-                return
-            }
-
-            val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
-            val handler = Handler(Looper.getMainLooper())
-
-            // schizophrenia
-            if (isForbiddenApp(app.packageName)) {
-                val mainActivity = activity as MainActivity
-                val mayaImageView = mainActivity.mayaImageView!!
-                val mayaExitButton = mainActivity.mayaExitButton!!
-                val mayaTextView = mainActivity.mayaTextView!!
-                fun setBlockerVisibility(visibility: Int) {
-                    mayaImageView.visibility = visibility
-                    mayaExitButton.visibility = visibility
-                    mayaTextView.visibility = visibility
-                }
-
-                setBlockerVisibility(View.VISIBLE)
-                Toast.makeText(context, "launching forbidden application...", Toast.LENGTH_LONG).show()
-                homeFragment.transitionToStart()
-
-                var continueInvocation = true
-                mayaExitButton.setOnClickListener {
-                    if (continueInvocation) {
-                        Toast.makeText(context, "you will be free...", Toast.LENGTH_SHORT).show()
-                        continueInvocation = false
-                    }
-                }
-
-                var i = 0
-                var invocationFailRate = 0.17f
-                OverlayService.onAppSwitchedListener = Runnable { invocationFailRate += 0.0425f }  // slightly punish user for not waiting at home screen
-                handler.postDelayed(object : Runnable {
-                    private val keyguardManager = requireContext()
-                        .getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-
-                    @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
-                    override fun run() {
-                        if (i++ < INVOCATION_MAX) {
-                            // screen locked, abort invocation
-                            if (keyguardManager.isDeviceLocked) {
-                                setBlockerVisibility(View.INVISIBLE)
-                                return
-                            }
-
-                            if (continueInvocation) {
-                                Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
-                                handler.postDelayed(this, INVOCATION_DELAY + (i * 30))
-                                return
-                            }
-
-                            // cancel
-                            setBlockerVisibility(View.INVISIBLE)
-                            Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
-                            return
-                        }
-
-                        Toast.makeText(context,
-                            "success rate: ${((1 - invocationFailRate) * 100).toString().split(".")[0]}%",
-                            Toast.LENGTH_LONG).show()
-
-                        handler.postDelayed({
-                            // hide goddess
-                            setBlockerVisibility(View.INVISIBLE)
-
-                            // be annoying
-                            if (Random.nextFloat() < invocationFailRate) {
-                                Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
-                                return@postDelayed
-                            }
-
-                            // start brainrot
-                            OverlayService.resetTimer(app.packageName)
-                            Toast.makeText(context, "you will wither...", Toast.LENGTH_LONG).show()
-
-                            // launch blasphemous app
-                            launchApp(app.packageName, app.className, app.userSerial)
-                            homeFragment.transitionToStart()
-                        }, 3_000)
-                    }
-                }, INVOCATION_DELAY)
-            }
-
-            else {
-                appsClickable = false
-                Toast.makeText(context, "invoking ${app.packageName}...", Toast.LENGTH_SHORT).show()
-                homeFragment.transitionToStart()
-                handler.postDelayed({
-                    Toast.makeText(context, "take care...", Toast.LENGTH_LONG).show()
-                }, 4_000)
-                handler.postDelayed({
-                    appsClickable = true
-                    launchApp(app.packageName, app.className, app.userSerial)
-                }, 7_500)
-            }
+            // these are the apps in the app drawer
+            launchAppRestricted(app.packageName, app.className, app.userSerial)
         }
     }
 }
