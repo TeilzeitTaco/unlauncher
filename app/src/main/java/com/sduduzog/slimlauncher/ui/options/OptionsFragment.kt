@@ -1,14 +1,17 @@
 package com.sduduzog.slimlauncher.ui.options
 
 import android.content.Context.MODE_PRIVATE
+import android.content.DialogInterface
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.edit
 import androidx.navigation.Navigation
+import com.sduduzog.slimlauncher.OverlayService
 import com.sduduzog.slimlauncher.R
 import com.sduduzog.slimlauncher.databinding.OptionsFragmentBinding
 import com.sduduzog.slimlauncher.datasource.UnlauncherDataSource
@@ -20,6 +23,8 @@ import com.sduduzog.slimlauncher.utils.BaseFragment
 import com.sduduzog.slimlauncher.utils.createTitleAndSubtitleText
 import com.sduduzog.slimlauncher.utils.isActivityDefaultLauncher
 import dagger.hilt.android.AndroidEntryPoint
+import java.text.SimpleDateFormat
+import java.util.Date
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -98,6 +103,22 @@ class OptionsFragment : BaseFragment() {
                 R.id.action_optionsFragment_to_customiseAppDrawerFragment
             )
         )
+
+        val sdf = SimpleDateFormat("MM/dd HH:mm:ss")
+        optionsFragment.optionsFragmentShowLog.setOnClickListener {
+            AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme).apply {
+                setPositiveButton("Affirm") { _, _ -> }
+                setTitle("Activity Log")
+                setMessage("Applications viewed this session in sequence (most recent first):\n\n" + OverlayService.activityLog.reversed()
+                    .joinToString(separator = "\n") { m ->
+                        "${sdf.format(m.date)}:\n${
+                            m.packageName.replace("com.", "").replace("google.android.", "")
+                        }"
+                    })
+                create()
+                show()
+            }
+        }
     }
 
     override fun onStart() {

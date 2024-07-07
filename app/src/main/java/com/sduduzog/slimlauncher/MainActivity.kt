@@ -17,6 +17,7 @@ import android.content.res.Resources
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.icu.text.DateFormat
 import android.net.Uri
 import android.os.Binder
 import android.os.Build
@@ -52,6 +53,8 @@ import com.sduduzog.slimlauncher.utils.SystemUiManager
 import com.sduduzog.slimlauncher.utils.WallpaperManager
 import dagger.hilt.android.AndroidEntryPoint
 import java.lang.reflect.Method
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.SortedMap
 import java.util.TreeMap
 import javax.inject.Inject
@@ -103,17 +106,22 @@ class MainActivity :
         for (s in subscribers) s.onHome()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
+    @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.main_activity)
 
         // absurd spaghetti code
-        mayaImageView = findViewById(R.id.maya_image_view)
         mayaExitButton = findViewById(R.id.maya_exit_button)
         mayaTextView = findViewById(R.id.maya_text_view)
+        mayaImageView = findViewById<ImageView>(R.id.maya_image_view).apply {
+            setOnTouchListener { _, _ -> true }  // capture touch events
+        }
 
-        settings = getSharedPreferences(getString(R.string.prefs_settings), MODE_PRIVATE)
-        settings.registerOnSharedPreferenceChangeListener(this)
+        settings = getSharedPreferences(getString(R.string.prefs_settings), MODE_PRIVATE).apply {
+            registerOnSharedPreferenceChangeListener(this@MainActivity)
+        }
         val navHostFragment = supportFragmentManager.findFragmentById(
             R.id.nav_host_fragment
         ) as NavHostFragment
@@ -129,6 +137,7 @@ class MainActivity :
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onResume() {
         super.onResume()
         @Suppress("DEPRECATION")
@@ -209,7 +218,7 @@ class MainActivity :
                 6 -> R.style.AppThemeLight
                 7 -> R.style.AppDarculaTheme
                 8 -> R.style.AppGruvBoxDarkTheme
-                9 -> R.style.AppFleshNetworkTheme
+                9 -> R.style.AppFleshNetworkTheme  // evil
                 else -> R.style.AppTheme
             }
         }
@@ -327,6 +336,8 @@ class OverlayService : AccessibilityService() {
     private lateinit var keyguardManager: KeyguardManager
     private lateinit var view: TextView
 
+    class LogMessage(val date: Date, val packageName: String)
+
     companion object {
         private var resumeAlpha = 0f
         private var allowedPackage: String? = null
@@ -338,7 +349,9 @@ class OverlayService : AccessibilityService() {
         private var running = false
         fun isRunning() = running
 
-        var onAppSwitchtedListener: Runnable? = null
+        var onAppSwitchedListener: Runnable? = null
+
+        val activityLog = ArrayList<LogMessage>()
     }
 
     private val updateHandler = Handler(Looper.getMainLooper())
@@ -348,14 +361,14 @@ class OverlayService : AccessibilityService() {
             resumeAlpha = min(resumeAlpha + 0.000_25f, 1f)
             view.alpha = resumeAlpha
             view.text = (0..6000).map {
-                "草半豆東亭種婆的躲更蛋地才細水連葉花升".random()
+                "草半豆東亭種婆的躲更蛋地才細水連葉花升金速法情同任連寺品文優高満支隊撲女諤芸九".random()
             }.joinToString(separator = "", prefix = "")
             if (keyguardManager.isDeviceLocked) {
                 view.visibility = View.INVISIBLE
                 stop = true
             }
             if (!stop) {
-                updateHandler.postDelayed(this, 25)
+                updateHandler.postDelayed(this, 30)
             }
         }
     }
@@ -364,19 +377,22 @@ class OverlayService : AccessibilityService() {
     @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         event?.packageName ?: return
-        if (event.packageName.toString().contains("inputmethod") ||
-            event.packageName.toString().contains("system") ||
+        val packageNameString = event.packageName.toString()
+        if (packageNameString.contains("inputmethod") ||
+            packageNameString.contains("system") ||
             event.packageName.equals("com.jkuester.unlauncher")) {
             return  // keyboard etc.
         }
 
-        onAppSwitchtedListener?.run()
+        if (activityLog.isEmpty() || activityLog.last().packageName != packageNameString)
+            activityLog.add(LogMessage(Date(), packageNameString))
+        onAppSwitchedListener?.run()
 
-        val forbidden = isForbiddenApp(event.packageName.toString())
-        Log.d(S_TAG, "packageName: ${event.packageName}, forbidden: $forbidden, ${event.eventTime}")
+        val forbidden = isForbiddenApp(packageNameString)
+        Log.d(S_TAG, "packageName: ${packageNameString}, forbidden: $forbidden, time: ${event.eventTime}")
         if (forbidden) {
             view.visibility = View.VISIBLE
-            if (allowedPackage != null && event.packageName.toString() != allowedPackage) {
+            if (allowedPackage != null && packageNameString != allowedPackage) {
                 // no cheating! user opened e.g. instagram, and then switched to newpipe via tray.
                 resumeAlpha = 1f
             }

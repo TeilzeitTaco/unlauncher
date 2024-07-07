@@ -2,6 +2,7 @@ package com.sduduzog.slimlauncher.ui.main
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -73,7 +74,7 @@ import kotlin.random.Random
 
 private const val APP_TILE_SIZE: Int = 3
 private const val INVOCATION_MAX = 32
-private const val INVOCATION_DELAY: Long = 5_000
+private const val INVOCATION_DELAY: Long = 4_900
 
 @AndroidEntryPoint
 class HomeFragment : BaseFragment(), OnLaunchAppListener {
@@ -539,39 +540,55 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 }
 
                 var i = 0
-                var invocationFailRate = 0.20f
-                OverlayService.onAppSwitchtedListener = Runnable { invocationFailRate += 0.15f }  // slightly punish user for not waiting at home screen
+                var invocationFailRate = 0.17f
+                OverlayService.onAppSwitchedListener = Runnable { invocationFailRate += 0.0425f }  // slightly punish user for not waiting at home screen
                 handler.postDelayed(object : Runnable {
+                    private val keyguardManager = requireContext()
+                        .getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+
+                    @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
                     override fun run() {
                         if (i++ < INVOCATION_MAX) {
-                            if (continueInvocation) {
-                                handler.postDelayed(this, INVOCATION_DELAY + (i * 40))
-                                Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
-                            }
-                            else {
-                                // cancel
+                            // screen locked, abort invocation
+                            if (keyguardManager.isDeviceLocked) {
                                 setBlockerVisibility(View.INVISIBLE)
-                                Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
+                                return
                             }
+
+                            if (continueInvocation) {
+                                Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
+                                handler.postDelayed(this, INVOCATION_DELAY + (i * 30))
+                                return
+                            }
+
+                            // cancel
+                            setBlockerVisibility(View.INVISIBLE)
+                            Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
                             return
                         }
 
-                        // hide goddess
-                        setBlockerVisibility(View.INVISIBLE)
+                        Toast.makeText(context,
+                            "success rate: ${((1 - invocationFailRate) * 100).toString().split(".")[0]}%",
+                            Toast.LENGTH_LONG).show()
 
-                        // be annoying
-                        if (Random.nextFloat() < invocationFailRate) {
-                            Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
-                            return
-                        }
+                        handler.postDelayed({
+                            // hide goddess
+                            setBlockerVisibility(View.INVISIBLE)
 
-                        // start brainrot
-                        OverlayService.resetTimer(app.packageName)
-                        Toast.makeText(context, "you will wither...", Toast.LENGTH_LONG).show()
+                            // be annoying
+                            if (Random.nextFloat() < invocationFailRate) {
+                                Toast.makeText(context, "failed...", Toast.LENGTH_LONG).show()
+                                return@postDelayed
+                            }
 
-                        // launch blasphemous app
-                        launchApp(app.packageName, app.className, app.userSerial)
-                        homeFragment.transitionToStart()
+                            // start brainrot
+                            OverlayService.resetTimer(app.packageName)
+                            Toast.makeText(context, "you will wither...", Toast.LENGTH_LONG).show()
+
+                            // launch blasphemous app
+                            launchApp(app.packageName, app.className, app.userSerial)
+                            homeFragment.transitionToStart()
+                        }, 3_000)
                     }
                 }, INVOCATION_DELAY)
             }

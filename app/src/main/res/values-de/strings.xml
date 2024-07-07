@@ -56,8 +56,8 @@
     <string name="customize_app_drawer_fragment_show_headings_subtitle">Apps in alphabetische Gruppen unterteilen</string>
     <string name="customize_app_drawer_fragment_show_search_bar">Suchfeld anzeigen</string>
     <string name="customize_app_drawer_fragment_visible_apps">Appsichtbarkeit einstellen</string>
-    <string name="hidden">versteckt</string>
-    <string name="hide_app">Verstecken</string>
+    <string name="hidden">verborgen</string>
+    <string name="hide_app">Verbergen</string>
     <string name="main_date_format">EE dd. MMMM</string>
     <string name="main_fragment_options">Einstellungen</string>
     <string name="menu_remove">Entfernen</string>
