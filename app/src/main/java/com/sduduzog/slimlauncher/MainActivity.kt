@@ -318,6 +318,11 @@ fun isForbiddenApp(packageName: String): Boolean {
     return forbiddenPackageNames.contains(packageName)
 }
 
+fun isFastTrackApp(packageName: String): Boolean {
+    val l = packageName.lowercase()
+    return l.contains("noteless") || l.contains("camera") || l.contains("settings")
+}
+
 fun shouldBeSoftForbidden(packageName: String): Boolean {
     if (packageName.contains("system") || packageName.contains("google") ||
         packageName.contains("unlauncher") || packageName.contains("settings"))
@@ -332,10 +337,7 @@ fun shouldBeSoftForbidden(packageName: String): Boolean {
 
 fun isForbiddenOrSoftForbiddenApp(packageName: String): Pair<Boolean, Boolean> {
     val forbidden = isForbiddenApp(packageName)
-    var softForbidden = false
-    if (!forbidden) {
-        softForbidden = shouldBeSoftForbidden(packageName)
-    }
+    val softForbidden = if (forbidden) false else shouldBeSoftForbidden(packageName)
     return Pair(forbidden || softForbidden, softForbidden)
 }
 

@@ -52,6 +52,7 @@ import com.sduduzog.slimlauncher.databinding.HomeFragmentContentBinding
 import com.sduduzog.slimlauncher.databinding.HomeFragmentDefaultBinding
 import com.sduduzog.slimlauncher.datasource.UnlauncherDataSource
 import com.sduduzog.slimlauncher.datasource.quickbuttonprefs.QuickButtonPreferencesRepository
+import com.sduduzog.slimlauncher.isFastTrackApp
 import com.sduduzog.slimlauncher.isForbiddenOrSoftForbiddenApp
 import com.sduduzog.slimlauncher.models.HomeApp
 import com.sduduzog.slimlauncher.models.MainViewModel
@@ -447,6 +448,12 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
         if (!OverlayService.isRunning()) {
             Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // some apps should be speedy
+        if (isFastTrackApp(packageName)) {
+            launchApp(packageName, className, userSerial)
             return
         }
 
