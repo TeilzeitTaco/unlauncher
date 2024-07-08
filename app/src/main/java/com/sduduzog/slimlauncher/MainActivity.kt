@@ -313,7 +313,13 @@ class MainActivity :
 }
 
 
-private val forbiddenPackageNames = arrayListOf("com.tinder", "com.instagram.android", "org.schabi.newpipe", "co.hinge.app", "com.bumble.app")
+private val forbiddenPackageNames = arrayListOf(
+    "com.instagram.android",
+    "org.schabi.newpipe",
+    "com.reddit.frontpage",
+    // these aren't a problem yet:
+    // "co.hinge.app", "com.bumble.app", "com.tinder",
+)
 fun isForbiddenApp(packageName: String): Boolean {
     return forbiddenPackageNames.contains(packageName)
 }
@@ -325,7 +331,8 @@ fun isFastTrackApp(packageName: String): Boolean {
 
 fun shouldBeSoftForbidden(packageName: String): Boolean {
     if (packageName.contains("system") || packageName.contains("google") ||
-        packageName.contains("unlauncher") || packageName.contains("settings"))
+        packageName.contains("unlauncher") || packageName.contains("settings") ||
+        isFastTrackApp(packageName))
         return false  // never ban the launcher, lol
 
     val now = Date()
@@ -370,7 +377,7 @@ class OverlayService : AccessibilityService() {
     inner class OverlayUpdater : Runnable {
         var stop = false
         override fun run() {
-            resumeAlpha = min(resumeAlpha + 0.000_25f, 1f)
+            resumeAlpha = min(resumeAlpha + 0.000_175f, 1f)
             view.alpha = resumeAlpha
             view.text = (0..6000).map {
                 "草半豆東亭種婆的躲更蛋地才細水連葉花升金速法情同任連寺品文優高満支隊撲女諤芸九".random()
