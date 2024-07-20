@@ -72,7 +72,7 @@ import kotlin.random.Random
 
 private const val APP_TILE_SIZE: Int = 3
 private const val INVOCATION_MAX = 32
-private const val INVOCATION_DELAY: Long = 4_900
+private const val INVOCATION_DELAY: Long = 4_750
 
 @AndroidEntryPoint
 class HomeFragment : BaseFragment(), OnLaunchAppListener {

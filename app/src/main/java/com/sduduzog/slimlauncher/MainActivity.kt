@@ -132,6 +132,7 @@ class MainActivity :
         @Suppress("DEPRECATION")
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         systemUiManager.setSystemUiVisibility()
+        OverlayService.overlayUpdaterStop = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             maybeStartService()
         }
@@ -317,6 +318,9 @@ private val forbiddenPackageNames = arrayListOf(
     "com.instagram.android",
     "org.schabi.newpipe",
     "com.reddit.frontpage",
+    "com.github.libretube",
+    "org.fdroid.fdroid", "com.android.vending",  // app stores, as they can be used to bypass our lock
+
     // these aren't a problem yet:
     // "co.hinge.app", "com.bumble.app", "com.tinder",
 )
@@ -326,19 +330,25 @@ fun isForbiddenApp(packageName: String): Boolean {
 
 fun isFastTrackApp(packageName: String): Boolean {
     val l = packageName.lowercase()
-    return l.contains("noteless") || l.contains("camera") || l.contains("settings")
+    return l.contains("noteless") || l.contains("camera") ||
+            l.contains("settings") || l.contains("whatsapp")
 }
 
 fun shouldBeSoftForbidden(packageName: String): Boolean {
     if (packageName.contains("system") || packageName.contains("google") ||
         packageName.contains("unlauncher") || packageName.contains("settings") ||
+
+        // neither soft-bannable nor fast-track:
+        // because I still want the slight launch delay on these.
+        packageName.contains("spotify") || packageName.contains("wikipedia") ||
+        packageName.contains("firefox") ||
         isFastTrackApp(packageName))
-        return false  // never ban the launcher, lol
+        return false  // never ban the launcher etc., lol
 
     val now = Date()
     return OverlayService.activityLog.count { m ->
         (packageName == m.packageName) &&
-                TimeUnit.MILLISECONDS.toHours(now.time - m.date.time) < 12
+                TimeUnit.MILLISECONDS.toHours(now.time - m.date.time) < 6
     } > MAX_LOG_OCCURRENCES_FOR_SOFT_LOCK
 }
 
@@ -371,11 +381,12 @@ class OverlayService : AccessibilityService() {
         var onAppSwitchedListener: Runnable? = null
 
         val activityLog = ArrayList<LogMessage>()
+
+        var overlayUpdaterStop = false
     }
 
     private val updateHandler = Handler(Looper.getMainLooper())
     inner class OverlayUpdater : Runnable {
-        var stop = false
         override fun run() {
             resumeAlpha = min(resumeAlpha + 0.000_175f, 1f)
             view.alpha = resumeAlpha
@@ -383,11 +394,13 @@ class OverlayService : AccessibilityService() {
                 "草半豆東亭種婆的躲更蛋地才細水連葉花升金速法情同任連寺品文優高満支隊撲女諤芸九".random()
             }.joinToString(separator = "", prefix = "")
             if (keyguardManager.isDeviceLocked) {
-                view.visibility = View.INVISIBLE
-                stop = true
+                overlayUpdaterStop = true
             }
-            if (!stop) {
+            if (!overlayUpdaterStop) {
                 updateHandler.postDelayed(this, 30)
+            }
+            else {
+                view.visibility = View.INVISIBLE
             }
         }
     }
@@ -399,7 +412,7 @@ class OverlayService : AccessibilityService() {
         val packageNameString = event.packageName.toString()
         if (packageNameString.contains("inputmethod") ||
             packageNameString.contains("system") ||
-            event.packageName.equals("com.jkuester.unlauncher")) {
+            packageNameString.contains("unlauncher")) {
             return  // keyboard etc.
         }
 
@@ -416,13 +429,16 @@ class OverlayService : AccessibilityService() {
                 resumeAlpha = 1f
             }
 
-            if (lastOverlayUpdater == null || lastOverlayUpdater?.stop == true) {
+            if (lastOverlayUpdater == null || overlayUpdaterStop) {
+                overlayUpdaterStop = false
                 lastOverlayUpdater = OverlayUpdater().also {
                     updateHandler.post(it)
                 }
             }
-        } else {
-            lastOverlayUpdater?.stop = true
+
+        // this allows us to block the app tray
+        } else if (!packageNameString.contains("nexuslauncher")) {
+            overlayUpdaterStop = true
             view.visibility = View.INVISIBLE
         }
     }
