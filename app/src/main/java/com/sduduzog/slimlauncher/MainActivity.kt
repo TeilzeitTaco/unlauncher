@@ -335,13 +335,17 @@ fun isFastTrackApp(packageName: String): Boolean {
 }
 
 fun shouldBeSoftForbidden(packageName: String): Boolean {
-    if (packageName.contains("system") || packageName.contains("google") ||
-        packageName.contains("unlauncher") || packageName.contains("settings") ||
+    if (packageName.contains("system") ||
+        packageName.contains("google") ||
+        packageName.contains("unlauncher") ||
+        packageName.contains("settings") ||
 
         // neither soft-bannable nor fast-track:
         // because I still want the slight launch delay on these.
-        packageName.contains("spotify") || packageName.contains("wikipedia") ||
+        packageName.contains("spotify") ||
+        packageName.contains("wikipedia") ||
         packageName.contains("firefox") ||
+        packageName.contains("grindr") ||  // incredibly badly programmed app
         isFastTrackApp(packageName))
         return false  // never ban the launcher etc., lol
 
