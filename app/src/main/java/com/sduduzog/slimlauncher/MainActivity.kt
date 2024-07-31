@@ -315,7 +315,8 @@ class MainActivity :
 
 
 private val forbiddenPackageNames = arrayListOf(
-    "com.instagram.android",
+    "com.google.android.youtube",  // obviously
+    "com.instagram.android",  // yeah
     "org.schabi.newpipe",
     "com.reddit.frontpage",
     "com.github.libretube",
