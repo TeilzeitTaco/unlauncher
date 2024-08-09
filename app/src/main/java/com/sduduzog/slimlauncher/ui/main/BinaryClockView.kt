@@ -22,7 +22,9 @@ class BinaryClockView(context: Context, attrs: AttributeSet) :
 
     init {
         onPaint.style = Paint.Style.FILL_AND_STROKE
+        onPaint.strokeWidth = 4f
         offPaint.style = Paint.Style.STROKE
+        offPaint.strokeWidth = 4f  // thicker is better
         context.theme.obtainStyledAttributes(
             attrs,
             R.styleable.BinaryClockView,

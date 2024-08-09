@@ -46,7 +46,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="48dp"
             android:fontFamily="@font/jmh_typewriter"
-            android:text="you are not Free..."
+            android:text="you will Regret this..."
             android:textAlignment="center"
             android:textAllCaps="true"
             android:textColor="#D50000"

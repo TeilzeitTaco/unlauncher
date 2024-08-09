@@ -27,7 +27,7 @@ class HomeAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = apps.elementAt(position)
-        holder.mLabelView.text = item.appNickname ?: item.appName
+        holder.mLabelView.text = "[ " + (item.appNickname ?: item.appName) + " ]"
         holder.mLabelView.setOnClickListener {
             listener.onLaunch(item, it)
         }

@@ -320,19 +320,23 @@ private val forbiddenPackageNames = arrayListOf(
     "org.schabi.newpipe",
     "com.reddit.frontpage",
     "com.github.libretube",
+    "org.wikipedia",  // yep, autism
     "org.fdroid.fdroid", "com.android.vending",  // app stores, as they can be used to bypass our lock
 
     // these aren't a problem yet:
     // "co.hinge.app", "com.bumble.app", "com.tinder",
 )
 fun isForbiddenApp(packageName: String): Boolean {
-    return forbiddenPackageNames.contains(packageName)
+    return forbiddenPackageNames.contains(packageName) || packageName.contains("poker")
 }
 
 fun isFastTrackApp(packageName: String): Boolean {
     val l = packageName.lowercase()
     return l.contains("noteless") || l.contains("camera") ||
-            l.contains("settings") || l.contains("whatsapp")
+            l.contains("settings") || l.contains("whatsapp") ||
+            l.contains("apps.maps") ||  // google maps
+            l.contains(".oebb") ||  // railway tickets etc.
+            l.contains("railanddrive")
 }
 
 fun shouldBeSoftForbidden(packageName: String): Boolean {
@@ -344,7 +348,7 @@ fun shouldBeSoftForbidden(packageName: String): Boolean {
         // neither soft-bannable nor fast-track:
         // because I still want the slight launch delay on these.
         packageName.contains("spotify") ||
-        packageName.contains("wikipedia") ||
+        // packageName.contains("wikipedia") ||
         packageName.contains("firefox") ||
         packageName.contains("grindr") ||  // incredibly badly programmed app
         isFastTrackApp(packageName))

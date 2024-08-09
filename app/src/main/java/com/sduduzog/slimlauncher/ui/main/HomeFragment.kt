@@ -389,9 +389,12 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     private fun updateDate() {
-        val fWatchDate = SimpleDateFormat(getString(R.string.main_date_format), Locale.getDefault())
+        val fWatchDate = SimpleDateFormat("'day' D 'of' YYYY,\n'that is' EEEE,\n'the' d'ord' 'of' MMMM", Locale.ENGLISH)
         val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
-        homeFragmentContent.homeFragmentDate.text = fWatchDate.format(Date())
+        val now = Date()
+        val str = fWatchDate.format(now)
+        val final = str.replace("ord", arrayOf("st", "nd", "rd", "th", "th", "th", "th", "th", "th")[(now.date % 10) - 1])
+        homeFragmentContent.homeFragmentDate.text = final
     }
 
     override fun onLaunch(app: HomeApp, view: View) {
@@ -446,14 +449,14 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             Toast.makeText(context, "we are already busy...", Toast.LENGTH_SHORT).show()
             return
         }
-        if (!OverlayService.isRunning()) {
-            Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
-            return
-        }
 
-        // some apps should be speedy
+        // some apps should be speedy (and always be launchable without inhibition)
         if (isFastTrackApp(packageName)) {
             launchApp(packageName, className, userSerial)
+            return
+        }
+        else if (!OverlayService.isRunning()) {
+            Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
             return
         }
 
