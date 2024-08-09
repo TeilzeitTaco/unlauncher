@@ -3,7 +3,7 @@
 </p>
 
 <h1 align="center">
-  Unlauncher
+  Unlauncher / Demaya Edit
 </h1>
 
 ![Build Status](https://github.com/jkuester/unlauncher/workflows/Android%20Master%20Branch%20CI/badge.svg)
