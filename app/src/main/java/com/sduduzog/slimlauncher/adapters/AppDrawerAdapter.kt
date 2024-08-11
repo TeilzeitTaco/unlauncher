@@ -47,7 +47,7 @@ class AppDrawerAdapter(
         when (val drawerRow = filteredApps[position]) {
             is AppDrawerRow.Item -> {
                 val unlauncherApp = drawerRow.app
-                (holder as ItemViewHolder).bind(unlauncherApp)
+                (holder as ItemViewHolder).bind(unlauncherApp, position)
                 holder.itemView.setOnClickListener {
                     listener.onAppClicked(unlauncherApp)
                 }
@@ -167,8 +167,9 @@ class AppDrawerAdapter(
             return "${super.toString()} '${item.text}'"
         }
 
-        fun bind(item: UnlauncherApp) {
-            this.item.text = item.displayName
+        @SuppressLint("SetTextI18n")
+        fun bind(item: UnlauncherApp, position: Int) {
+            this.item.text = "${position + 1}. | ${item.displayName.lowercase().replace(' ', '-')}"
             this.item.gravity = gravity
         }
     }

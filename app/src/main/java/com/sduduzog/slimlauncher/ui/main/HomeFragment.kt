@@ -68,11 +68,11 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.ArrayList
 import kotlin.random.Random
 
-private const val APP_TILE_SIZE: Int = 3
 private const val INVOCATION_MAX = 32
-private const val INVOCATION_DELAY: Long = 4_750
+private const val INVOCATION_DELAY: Long = 4_500
 
 @AndroidEntryPoint
 class HomeFragment : BaseFragment(), OnLaunchAppListener {
@@ -103,33 +103,48 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
     }
 
+    private lateinit var adapter1: HomeAdapter
+    private lateinit var adapter2: HomeAdapter
+    private var homeAppList: List<HomeApp> = ArrayList()
+
+    private fun distributeApps() {
+        if (homeAppList.size > 3) {
+            // for the effect when swiping up, we use two recycler views
+            adapter1.setItems(homeAppList.subList(0, 3))
+            adapter2.setItems(homeAppList.subList(3, homeAppList.size))
+        } else {
+            adapter1.setItems(homeAppList)
+        }
+        lifecycleScope.launch {  // Set the home apps in the Unlauncher data
+            unlauncherDataSource.unlauncherAppsRepo.setHomeApps(homeAppList)
+        }
+    }
+
+    private fun getNewHomeAppList(): List<HomeApp> {
+        if (homeAppList.isEmpty())
+            return homeAppList
+
+        val newList = homeAppList.shuffled()
+        for (app in homeAppList)
+            if (homeAppList.indexOf(app) == newList.indexOf(app))
+                return getNewHomeAppList()  // we always want *all* apps to move
+
+        return newList
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val adapter1 = HomeAdapter(this, unlauncherDataSource)
-        val adapter2 = HomeAdapter(this, unlauncherDataSource)
-        val homeFragmentContent = HomeFragmentContentBinding.bind(view)
-        homeFragmentContent.homeFragmentList.adapter = adapter1
-        homeFragmentContent.homeFragmentListExp.adapter = adapter2
-
-        val unlauncherAppsRepo = unlauncherDataSource.unlauncherAppsRepo
+        adapter1 = HomeAdapter(this, unlauncherDataSource)
+        adapter2 = HomeAdapter(this, unlauncherDataSource)
+        val homeFragmentContent = HomeFragmentContentBinding.bind(view).apply {
+            homeFragmentList.adapter = adapter1
+            homeFragmentListExp.adapter = adapter2
+        }
 
         viewModel.apps.observe(viewLifecycleOwner) { list ->
             list?.let { apps ->
-                adapter1.setItems(
-                    apps.filter {
-                        it.sortingIndex < APP_TILE_SIZE
-                    }
-                )
-                adapter2.setItems(
-                    apps.filter {
-                        it.sortingIndex >= APP_TILE_SIZE
-                    }
-                )
-
-                // Set the home apps in the Unlauncher data
-                lifecycleScope.launch {
-                    unlauncherAppsRepo.setHomeApps(apps)
-                }
+                homeAppList = apps
+                distributeApps()
             }
         }
 
@@ -171,9 +186,16 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         requireView()
     ).homeFragment
 
+    private fun shuffleHomeApps() {
+        // shuffle home apps to avoid muscle memory
+        homeAppList = getNewHomeAppList()
+        distributeApps()
+    }
+
     override fun onResume() {
         super.onResume()
         updateClock()
+        shuffleHomeApps()
 
         refreshApps()
         if (!::appDrawerAdapter.isInitialized) {
@@ -215,19 +237,21 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 // Do nothing, we've failed :(
             }
         }
-        val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
-        homeFragmentContent.homeFragmentTime.setOnClickListener(launchShowAlarms)
-        homeFragmentContent.homeFragmentAnalogTime.setOnClickListener(launchShowAlarms)
-        homeFragmentContent.homeFragmentBinTime.setOnClickListener(launchShowAlarms)
 
-        homeFragmentContent.homeFragmentDate.setOnClickListener {
-            try {
-                val builder = CalendarContract.CONTENT_URI.buildUpon().appendPath("time")
-                val intent = Intent(Intent.ACTION_VIEW, builder.build())
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                launchActivity(it, intent)
-            } catch (e: ActivityNotFoundException) {
-                // Do nothing, we've failed :(
+        val homeFragmentContent = HomeFragmentContentBinding.bind(requireView()).apply {
+            homeFragmentTime.setOnClickListener(launchShowAlarms)
+            homeFragmentAnalogTime.setOnClickListener(launchShowAlarms)
+            homeFragmentBinTime.setOnClickListener(launchShowAlarms)
+            homeFragmentDate.setOnClickListener {
+                try {
+                    val builder = CalendarContract.CONTENT_URI.buildUpon().appendPath("time")
+                    val intent = Intent(Intent.ACTION_VIEW, builder.build()).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    launchActivity(it, intent)
+                } catch (e: ActivityNotFoundException) {
+                    // Do nothing, we've failed :(
+                }
             }
         }
 
@@ -393,7 +417,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
         val now = Date()
         val str = fWatchDate.format(now)
-        val final = str.replace("ord", arrayOf("st", "nd", "rd", "th", "th", "th", "th", "th", "th")[(now.date % 10) - 1])
+        val final = str.replace("ord", if (now.date == 11) "th" /* 11th not 11st */ else
+            arrayOf("th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th")[now.date % 10])
         homeFragmentContent.homeFragmentDate.text = final
     }
 
@@ -404,12 +429,14 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
     override fun onBack(): Boolean {
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
+        shuffleHomeApps()
         homeFragment.transitionToStart()
         return true
     }
 
     override fun onHome() {
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
+        shuffleHomeApps()
         homeFragment.transitionToStart()
     }
 
@@ -458,7 +485,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         else if (!OverlayService.isRunning()) {
             Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
             return
-        }
+        } else if (Random.nextFloat() < 0.8)
+            return  // haha
 
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         val handler = Handler(Looper.getMainLooper())

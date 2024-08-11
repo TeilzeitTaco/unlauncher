@@ -377,27 +377,27 @@ class OverlayService : AccessibilityService() {
     class LogMessage(val date: Date, val packageName: String)
 
     companion object {
+        private var running = false
         private var resumeAlpha = 0f
         private var allowedPackage: String? = null
+
+        val activityLog = ArrayList<LogMessage>()  // TODO: add code to cull this occasionally
+
+        var onAppSwitchedListener: Runnable? = null
+        var overlayUpdaterStop = false
+
         fun resetTimer(forPackage: String) {
             allowedPackage = forPackage
             resumeAlpha = 0f
         }
 
-        private var running = false
         fun isRunning() = running
-
-        var onAppSwitchedListener: Runnable? = null
-
-        val activityLog = ArrayList<LogMessage>()
-
-        var overlayUpdaterStop = false
     }
 
     private val updateHandler = Handler(Looper.getMainLooper())
     inner class OverlayUpdater : Runnable {
         override fun run() {
-            resumeAlpha = min(resumeAlpha + 0.000_175f, 1f)
+            resumeAlpha = min(resumeAlpha + 0.000_250f, 1f)
             view.alpha = resumeAlpha
             view.text = (0..6000).map {
                 "草半豆東亭種婆的躲更蛋地才細水連葉花升金速法情同任連寺品文優高満支隊撲女諤芸九".random()
@@ -406,7 +406,7 @@ class OverlayService : AccessibilityService() {
                 overlayUpdaterStop = true
             }
             if (!overlayUpdaterStop) {
-                updateHandler.postDelayed(this, 30)
+                updateHandler.postDelayed(this, 33)
             }
             else {
                 view.visibility = View.INVISIBLE
@@ -487,8 +487,6 @@ class OverlayService : AccessibilityService() {
             y = 0
         }
 
-        (getSystemService(WINDOW_SERVICE) as WindowManager).apply {
-            addView(view, params)
-        }
+        (getSystemService(WINDOW_SERVICE) as WindowManager).addView(view, params)
     }
 }

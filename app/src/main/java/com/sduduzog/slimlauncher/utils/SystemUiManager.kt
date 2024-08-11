@@ -25,7 +25,7 @@ import dagger.hilt.android.qualifiers.ActivityContext
 @InstallIn(ActivityComponent::class)
 open class SystemUiManager internal constructor(internal val context: Context) {
     internal val window: Window = (context as Activity).window
-    internal val settings: SharedPreferences = context.getSharedPreferences(
+    private val settings: SharedPreferences = context.getSharedPreferences(
         context.getString(R.string.prefs_settings),
         AppCompatActivity.MODE_PRIVATE
     )
@@ -149,9 +149,6 @@ open class SystemUiManager internal constructor(internal val context: Context) {
 
     private class LSystemUiManager(context: Context) : MSystemUiManager(context) {
         override fun setSystemUiColors() {}
-
-        override fun getLightUiBarFlags(): Int {
-            return 0
-        }
+        override fun getLightUiBarFlags() = 0
     }
 }

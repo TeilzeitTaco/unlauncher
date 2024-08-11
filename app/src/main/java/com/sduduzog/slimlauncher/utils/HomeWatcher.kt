@@ -9,7 +9,6 @@ import android.content.IntentFilter
 import android.os.Build
 
 open class HomeWatcher(internal val context: Context) {
-
     private var listener: OnHomePressedListener? = null
     internal var receiver: InnerReceiver? = null
     internal val filter = IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
@@ -42,7 +41,6 @@ open class HomeWatcher(internal val context: Context) {
     }
 
     inner class InnerReceiver : BroadcastReceiver() {
-
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent == null) return
             if (intent.action != Intent.ACTION_CLOSE_SYSTEM_DIALOGS) return
