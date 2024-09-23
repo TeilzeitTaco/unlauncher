@@ -1,26 +1,35 @@
 package com.sduduzog.slimlauncher.ui.main
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.UserManager
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.provider.MediaStore
 import android.provider.Settings
 import android.text.format.DateFormat
+import android.util.Log
+import android.util.Size
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
@@ -33,8 +42,15 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.annotation.RequiresApi
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.impl.utils.executor.CameraXExecutors
+import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.constraintlayout.motion.widget.MotionLayout
 import androidx.constraintlayout.motion.widget.MotionLayout.TransitionListener
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
@@ -62,20 +78,18 @@ import com.sduduzog.slimlauncher.utils.OnLaunchAppListener
 import com.sduduzog.slimlauncher.utils.gravity
 import com.sduduzog.slimlauncher.utils.isSystemApp
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.IOException
+import java.io.OutputStream
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalUnit
-import java.util.ArrayList
-import java.util.concurrent.TimeUnit
 import kotlin.random.Random
-import kotlin.time.DurationUnit
-import kotlin.time.toTimeUnit
+
 
 private const val INVOCATION_MAX = 32
 private const val INVOCATION_DELAY: Long = 4_500
@@ -200,20 +214,24 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         distributeApps()
     }
 
-    @SuppressLint("SetTextI18n")
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun updateKsana() {
+    private fun getCurrentKsanaTag(): String {
         // this is the flesh-network blog ksana system (implemented ksana7287.46930444425)
         val day0 = Instant.parse("2004-10-11T22:00:00Z")
         val now = Instant.now()
         val days = day0.until(now, ChronoUnit.DAYS)
         val ms = day0.until(now, ChronoUnit.MILLIS) % (60 * 60 * 24 * 1000)
+        return "ksana${days + 1}.${ms.toString().padStart(8, '0')}"
+    }
 
+    @SuppressLint("SetTextI18n")
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun updateKsana() {
         val view = view
         if (view != null) {
             val homeFragmentContent = HomeFragmentContentBinding.bind(view)
-            homeFragmentContent.homeFragmentDate.text =
-                "the current instant\nof your life is:\nksana${days + 1}.${ms.toString().padStart(8, '0')}"
+            homeFragmentContent.homeFragmentDate.text = "the current instant\n" +
+                    "of your life is:\n${getCurrentKsanaTag()}"
         }
     }
 
@@ -274,6 +292,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
     private val ksanaHandler = Handler(Looper.getMainLooper())
 
+    @RequiresApi(Build.VERSION_CODES.S)
     private fun setEventListeners() {
         val launchShowAlarms = OnClickListener {
             try {
@@ -291,15 +310,27 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             homeFragmentAnalogTime.setOnClickListener(launchShowAlarms)
             homeFragmentBinTime.setOnClickListener(launchShowAlarms)
             homeFragmentDate.setOnLongClickListener {
+                homeFragmentDate.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+
                 isKsanaMode = !isKsanaMode
                 if (isKsanaMode) {
-                    ksanaHandler.post(ksanaUpdater)
+                    ksanaUpdater.run()
                 } else {
-                    updateClock()  // clear ksana mode
+                    updateDate()  // clear ksana mode
+                    // there is a race condition where there is still a ksana update
+                    // posted, but after a short delay, that certainly shouldn't be the case.
+                    ksanaHandler.postDelayed(::updateDate, 75)
                 }
                 true
             }
             homeFragmentDate.setOnClickListener {
+                if (isKsanaMode) {
+                    // if the ksana label is tapped, take a picture.
+                    val date = SimpleDateFormat("dd.MM.YYYY").format(Date())
+                    takePhoto("${date}-${getCurrentKsanaTag()}.jpg")
+                    return@setOnClickListener
+                }
+
                 try {
                     val builder = CalendarContract.CONTENT_URI.buildUpon().appendPath("time")
                     val intent = Intent(Intent.ACTION_VIEW, builder.build()).apply {
@@ -443,7 +474,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         })
     }
 
-    fun updateClock() {
+    private fun updateClock() {
         val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
         when (unlauncherDataSource.corePreferencesRepo.get().clockType) {
             ClockType.digital -> updateClockDigital()
@@ -578,8 +609,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             var invocationFailRate = 0.17f
             OverlayService.onAppSwitchedListener = Runnable { invocationFailRate += 0.0425f }  // slightly punish user for not waiting at home screen
             handler.postDelayed(object : Runnable {
-                private val keyguardManager = requireContext()
-                    .getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                private val vibrator = requireContext().getSystemService(Vibrator::class.java)
+                private val keyguardManager = requireContext().getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
 
                 @RequiresApi(Build.VERSION_CODES.LOLLIPOP_MR1)
                 override fun run() {
@@ -591,6 +622,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                         }
 
                         if (continueInvocation) {
+                            vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
                             Toast.makeText(context, "it is forbidden (${i}/${INVOCATION_MAX})...", Toast.LENGTH_LONG).show()
                             handler.postDelayed(this, INVOCATION_DELAY + (i * 30))
                             return
@@ -598,6 +630,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
                         // cancel
                         setBlockerVisibility(View.INVISIBLE)
+                        vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
                         Toast.makeText(context, "you are free...", Toast.LENGTH_LONG).show()
                         return
                     }
@@ -618,6 +651,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
                         // start brainrot
                         OverlayService.resetTimer(packageName)
+                        vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
                         Toast.makeText(context, "you will wither...", Toast.LENGTH_LONG).show()
 
                         // launch blasphemous app
@@ -707,5 +741,72 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             // these are the apps in the app drawer
             launchAppRestricted(app.packageName, app.className, app.userSerial)
         }
+    }
+
+    @Throws(IOException::class)
+    fun openMediaStream(context: Context, mimeType: String, displayName: String): OutputStream {
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/lifetime")
+        }
+
+        val resolver = context.contentResolver
+        var uri: Uri? = null
+
+        try {
+            uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                ?: throw IOException("Failed to create new MediaStore record.")
+
+            return resolver.openOutputStream(uri) ?: throw IOException("Failed to open output stream.")
+        } catch (e: IOException) {
+            uri?.let { orphanUri ->
+                // Don't leave an orphan entry in the MediaStore
+                resolver.delete(orphanUri, null, null)
+            }
+            throw e
+        }
+    }
+
+    private fun hasCameraPermission() = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    private var imageCapture: ImageCapture? = null
+
+    private fun takePhoto(displayName: String) {
+        if (!hasCameraPermission()) {
+            ActivityCompat.requestPermissions(requireActivity(), arrayOf(Manifest.permission.CAMERA), 10)
+            return
+        }
+
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+            imageCapture = ImageCapture.Builder()
+                .setFlashMode(ImageCapture.FLASH_MODE_OFF)
+                .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                .setTargetResolution(Size(2160, 3840))
+                .build().also {
+                    cameraProvider.bindToLifecycle(viewLifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, it)
+                }
+
+            val stream = openMediaStream(requireContext(), "image/jpeg", displayName)
+            val outputFileOptions = ImageCapture.OutputFileOptions.Builder(stream).build()
+            imageCapture!!.takePicture(outputFileOptions, CameraXExecutors.mainThreadExecutor(),
+                object : ImageCapture.OnImageSavedCallback {
+                    @RequiresApi(Build.VERSION_CODES.M)
+                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                        cameraProvider.unbindAll()
+                        val vibrator = requireContext().getSystemService(Vibrator::class.java)
+                        vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                        Toast.makeText(requireContext(), "you won't unsee...", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        cameraProvider.unbindAll()  // release resources
+                        Log.e("CAMERA", exception.stackTraceToString())
+                        Toast.makeText(requireContext(), "error taking image!", Toast.LENGTH_LONG).show()
+                    }
+                })
+        }, CameraXExecutors.mainThreadExecutor())
     }
 }
