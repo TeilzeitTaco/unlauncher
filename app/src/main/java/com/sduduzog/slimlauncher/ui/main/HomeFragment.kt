@@ -68,8 +68,14 @@ import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalUnit
 import java.util.ArrayList
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
+import kotlin.time.DurationUnit
+import kotlin.time.toTimeUnit
 
 private const val INVOCATION_MAX = 32
 private const val INVOCATION_DELAY: Long = 4_500
@@ -84,6 +90,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     private lateinit var receiver: BroadcastReceiver
     private lateinit var appDrawerAdapter: AppDrawerAdapter
     private lateinit var uninstallAppLauncher: ActivityResultLauncher<Intent>
+
+    private var isKsanaMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -192,9 +200,38 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         distributeApps()
     }
 
+    @SuppressLint("SetTextI18n")
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun updateKsana() {
+        // this is the flesh-network blog ksana system (implemented ksana7287.46930444425)
+        val day0 = Instant.parse("2004-10-11T22:00:00Z")
+        val now = Instant.now()
+        val days = day0.until(now, ChronoUnit.DAYS)
+        val ms = day0.until(now, ChronoUnit.MILLIS) % (60 * 60 * 24 * 1000)
+
+        val view = view
+        if (view != null) {
+            val homeFragmentContent = HomeFragmentContentBinding.bind(view)
+            homeFragmentContent.homeFragmentDate.text =
+                "the current instant\nof your life is:\nksana${days + 1}.${ms.toString().padStart(8, '0')}"
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun updateClockAndDate() {
+        updateClock()
+        if (isKsanaMode) {
+            updateKsana()
+        } else {
+            updateDate()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onResume() {
         super.onResume()
-        updateClock()
+        updateClockAndDate()
         shuffleHomeApps()
 
         refreshApps()
@@ -226,6 +263,17 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         resetAppDrawerEditText()
     }
 
+    private val ksanaUpdater = object : Runnable {
+        override fun run() {
+            if (isKsanaMode) {
+                updateKsana()
+                ksanaHandler.postDelayed(this, 20)
+            }
+        }
+    }
+
+    private val ksanaHandler = Handler(Looper.getMainLooper())
+
     private fun setEventListeners() {
         val launchShowAlarms = OnClickListener {
             try {
@@ -242,6 +290,13 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             homeFragmentTime.setOnClickListener(launchShowAlarms)
             homeFragmentAnalogTime.setOnClickListener(launchShowAlarms)
             homeFragmentBinTime.setOnClickListener(launchShowAlarms)
+            homeFragmentDate.setOnLongClickListener {
+                isKsanaMode = !isKsanaMode
+                if (isKsanaMode) {
+                    ksanaHandler.post(ksanaUpdater)
+                }
+                true
+            }
             homeFragmentDate.setOnClickListener {
                 try {
                     val builder = CalendarContract.CONTENT_URI.buildUpon().appendPath("time")
@@ -387,7 +442,6 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     fun updateClock() {
-        updateDate()
         val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
         when (unlauncherDataSource.corePreferencesRepo.get().clockType) {
             ClockType.digital -> updateClockDigital()
@@ -414,11 +468,12 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
     private fun updateDate() {
         val fWatchDate = SimpleDateFormat("'day' D 'of' YYYY,\n'that is' EEEE,\n'the' d'ord' 'of' MMMM", Locale.ENGLISH)
-        val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
         val now = Date()
         val str = fWatchDate.format(now)
         val final = str.replace("ord", if (now.date == 11) "th" /* 11th not 11st */ else
             arrayOf("th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th")[now.date % 10])
+
+        val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
         homeFragmentContent.homeFragmentDate.text = final
     }
 
@@ -441,8 +496,9 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     inner class ClockReceiver : BroadcastReceiver() {
+        @RequiresApi(Build.VERSION_CODES.O)
         override fun onReceive(ctx: Context?, intent: Intent?) {
-            updateClock()
+            updateClockAndDate()
         }
     }
 

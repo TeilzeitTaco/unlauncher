@@ -2,6 +2,7 @@ package com.sduduzog.slimlauncher
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
+import android.app.AppOpsManager
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
@@ -120,8 +121,14 @@ class MainActivity :
 
         // get permissions & start overlay service
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Log.d(TAG, "ACTION_USAGE_ACCESS_SETTINGS")
-            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            val appOps = applicationContext.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+            val mode = appOps.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), applicationContext.packageName)
+            if (mode != AppOpsManager.MODE_ALLOWED) {
+                Log.d(TAG, "ACTION_USAGE_ACCESS_SETTINGS")
+                startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+
             maybeStartService()
         }
     }
