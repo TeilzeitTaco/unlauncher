@@ -16,11 +16,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.provider.Settings
 import android.util.Log
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -49,9 +52,10 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.math.absoluteValue
 import kotlin.math.min
+import kotlin.random.Random
 
 private const val TAG = "DEMAYA"
-private const val MAX_LOG_OCCURRENCES_FOR_SOFT_LOCK = 10
+private const val MAX_LOG_OCCURRENCES_FOR_SOFT_LOCK = 12
 
 @AndroidEntryPoint
 class MainActivity :
@@ -244,20 +248,33 @@ class MainActivity :
     private val gestureDetector = GestureDetector(
         baseContext,
         object : SimpleOnGestureListener() {
+            private fun isEventOnTopOfView(event: MotionEvent, view: View) =
+                isViewContains(view, event.rawX.toInt(), event.rawY.toInt())
+
+            private fun isViewContains(view: View, rx: Int, ry: Int): Boolean {
+                val location = IntArray(2)
+                view.getLocationOnScreen(location)
+                val x = location[0]
+                val y = location[1]
+
+                return !(rx < x || rx > x + view.width || ry < y || ry > y + view.height)
+            }
+            @RequiresApi(Build.VERSION_CODES.Q)
             override fun onLongPress(e: MotionEvent) {
                 // Open Options
-                val recyclerView = findViewById<RecyclerView>(R.id.app_drawer_fragment_list)
-                val homeView = findViewById<View>(R.id.home_fragment)
+                val recyclerView = findViewById<RecyclerView>(R.id.app_drawer_fragment_list) ?: return
+                val homeView = findViewById<View>(R.id.home_fragment) ?: return
+                val dateView = findViewById<View>(R.id.home_fragment_date) ?: return
 
-                if (homeView != null && recyclerView != null) {
-                    if (isVisible(recyclerView)) {
-                        recyclerView.performLongClick()
-                    } else {
-                        // we are in the homeFragment
-                        findNavController(
-                            homeView
-                        ).navigate(R.id.action_homeFragment_to_optionsFragment, null)
-                    }
+                if (isVisible(recyclerView)) {
+                    recyclerView.performLongClick()
+                } else if (!isEventOnTopOfView(e, dateView)) {
+                    // we are in the homeFragment
+                    val vibrator = getSystemService(Vibrator::class.java)
+                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                    findNavController(
+                        homeView
+                    ).navigate(R.id.action_homeFragment_to_optionsFragment, null)
                 }
             }
 
@@ -380,6 +397,7 @@ private const val S_TAG = "DEMAYA_SERVICE"
 
 class OverlayService : AccessibilityService() {
     private lateinit var keyguardManager: KeyguardManager
+    private lateinit var vibrator: Vibrator
     private lateinit var view: TextView
 
     class LogMessage(val date: Date, val packageName: String)
@@ -418,6 +436,10 @@ class OverlayService : AccessibilityService() {
             }
             else {
                 view.visibility = View.INVISIBLE
+            }
+
+            if (Random.nextFloat() > (1 - (resumeAlpha / 2.5))) {
+                vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
             }
         }
     }
@@ -470,6 +492,7 @@ class OverlayService : AccessibilityService() {
         running = true
 
         keyguardManager = applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+        vibrator = applicationContext.getSystemService(Vibrator::class.java)
 
         view = TextView(this.applicationContext).apply {
             alpha = 0f
