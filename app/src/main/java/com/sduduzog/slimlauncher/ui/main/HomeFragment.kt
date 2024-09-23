@@ -294,6 +294,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 isKsanaMode = !isKsanaMode
                 if (isKsanaMode) {
                     ksanaHandler.post(ksanaUpdater)
+                } else {
+                    updateClock()  // clear ksana mode
                 }
                 true
             }
