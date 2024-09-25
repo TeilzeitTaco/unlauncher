@@ -55,6 +55,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.jhlabs.image.Gradient
 import com.jkuester.unlauncher.datastore.ClockType
 import com.jkuester.unlauncher.datastore.SearchBarPosition
 import com.jkuester.unlauncher.datastore.UnlauncherApp
@@ -80,6 +81,7 @@ import com.sduduzog.slimlauncher.utils.isSystemApp
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.awt.image.BufferedImage
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -87,6 +89,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
+import javax.imageio.ImageIO
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -220,8 +223,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         val day0 = Instant.parse("2004-10-11T22:00:00Z")
         val now = Instant.now()
         val days = day0.until(now, ChronoUnit.DAYS)
-        val ms = day0.until(now, ChronoUnit.MILLIS) % (60 * 60 * 24 * 1000)
-        return "ksana${days + 1}.${ms.toString().padStart(8, '0')}"
+        val ms = day0.until(now, ChronoUnit.MICROS) % (60L * 60 * 24 * 1000 * 1000)
+        return "ksana${days + 1}.${ms.toString().padStart(11, '0')}"
     }
 
     @SuppressLint("SetTextI18n")
@@ -232,6 +235,10 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             val homeFragmentContent = HomeFragmentContentBinding.bind(view)
             homeFragmentContent.homeFragmentDate.text = "the current instant\n" +
                     "of your life is:\n${getCurrentKsanaTag()}"
+
+            // fix some flickering
+            if (homeFragmentContent.homeFragmentDate.minWidth == 0)
+                homeFragmentContent.homeFragmentDate.minWidth = homeFragmentContent.homeFragmentDate.width
         }
     }
 
@@ -285,7 +292,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         override fun run() {
             if (isKsanaMode) {
                 updateKsana()
-                ksanaHandler.postDelayed(this, 20)
+                ksanaHandler.postDelayed(this, 5)
             }
         }
     }
@@ -327,7 +334,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 if (isKsanaMode) {
                     // if the ksana label is tapped, take a picture.
                     val date = SimpleDateFormat("dd.MM.YYYY").format(Date())
-                    takePhoto("${date}-${getCurrentKsanaTag()}.jpg")
+                    takePhoto("${date}-${getCurrentKsanaTag()}")
                     return@setOnClickListener
                 }
 
@@ -507,6 +514,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             arrayOf("th", "st", "nd", "rd", "th", "th", "th", "th", "th", "th")[now.date % 10])
 
         val homeFragmentContent = HomeFragmentContentBinding.bind(requireView())
+        homeFragmentContent.homeFragmentDate.minWidth = 0
         homeFragmentContent.homeFragmentDate.text = final
     }
 
@@ -744,7 +752,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     @Throws(IOException::class)
-    fun openMediaStream(context: Context, mimeType: String, displayName: String): OutputStream {
+    fun openMediaStream(context: Context, mimeType: String, displayName: String): Pair<OutputStream, Uri> {
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
@@ -758,7 +766,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
                 ?: throw IOException("Failed to create new MediaStore record.")
 
-            return resolver.openOutputStream(uri) ?: throw IOException("Failed to open output stream.")
+            return Pair(resolver.openOutputStream(uri) ?: throw IOException("Failed to open output stream."), uri)
         } catch (e: IOException) {
             uri?.let { orphanUri ->
                 // Don't leave an orphan entry in the MediaStore
@@ -789,16 +797,67 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                     cameraProvider.bindToLifecycle(viewLifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, it)
                 }
 
-            val stream = openMediaStream(requireContext(), "image/jpeg", displayName)
+            val streamAndUri = openMediaStream(requireContext(), "image/jpeg", "$displayName.jpg")
+            val stream = streamAndUri.first
             val outputFileOptions = ImageCapture.OutputFileOptions.Builder(stream).build()
             imageCapture!!.takePicture(outputFileOptions, CameraXExecutors.mainThreadExecutor(),
                 object : ImageCapture.OnImageSavedCallback {
                     @RequiresApi(Build.VERSION_CODES.M)
                     override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                        cameraProvider.unbindAll()
+                        cameraProvider.unbindAll()  // free camera
+
                         val vibrator = requireContext().getSystemService(Vibrator::class.java)
                         vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
                         Toast.makeText(requireContext(), "you won't unsee...", Toast.LENGTH_SHORT).show()
+
+                        Thread {
+                            // some funky filtering, just for fun. implemented 24.09.2024.
+                            val inputStream =
+                                requireContext().contentResolver.openInputStream(streamAndUri.second)
+
+                            // we have ImageIO etc. via the android-awt dependency:
+                            // these are some ancient Apache Harmony classes. They work alright, though.
+                            val dst = ImageIO.read(inputStream).let {
+                                com.jhlabs.image.EdgeFilter().filter(it, null)
+                            }.let {
+                                com.jhlabs.image.SharpenFilter().apply {
+                                    premultiplyAlpha = false
+                                    useAlpha = false
+                                }.filter(it, null)
+                            }.let {
+                                com.jhlabs.image.LookupFilter().apply {
+                                    colormap = Gradient(
+                                        intArrayOf(-1, 64, 100, 256), intArrayOf(
+                                            0xff000000u.toInt(), 0xff331100u.toInt(),
+                                            0xff970303u.toInt(), 0xffff0606u.toInt()
+                                        )
+                                    )
+                                }.filter(it, null)
+                            }.let {
+                                com.jhlabs.image.ContrastFilter().apply {
+                                    brightness = 3.2f
+                                }.filter(it, null)
+                            }
+
+                            // for some reason the image is rotated after reading,
+                            // so we have to rotate it back.
+                            val rotated = BufferedImage(dst.height, dst.width, dst.type)
+                            for (i in 0..<dst.width)
+                                for (j in 0..<dst.height)
+                                    rotated.setRGB(dst.height - j - 1, i, dst.getRGB(i, j))
+
+                            val filteredImageOutputStream = openMediaStream(
+                                requireContext(),
+                                "image/png",
+                                "$displayName-cv.png"
+                            ).first
+                            ImageIO.write(rotated, "png", filteredImageOutputStream)
+
+                            activity?.runOnUiThread {
+                                Toast.makeText(context ?: return@runOnUiThread,
+                                    "#COLDVISIONS", Toast.LENGTH_SHORT).show()
+                            }
+                        }.start()
                     }
 
                     override fun onError(exception: ImageCaptureException) {

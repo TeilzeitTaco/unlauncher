@@ -249,9 +249,9 @@ class MainActivity :
         baseContext,
         object : SimpleOnGestureListener() {
             private fun isEventOnTopOfView(event: MotionEvent, view: View) =
-                isViewContains(view, event.rawX.toInt(), event.rawY.toInt())
+                doesViewContainPoint(view, event.rawX.toInt(), event.rawY.toInt())
 
-            private fun isViewContains(view: View, rx: Int, ry: Int): Boolean {
+            private fun doesViewContainPoint(view: View, rx: Int, ry: Int): Boolean {
                 val location = IntArray(2)
                 view.getLocationOnScreen(location)
                 val x = location[0]
@@ -259,6 +259,7 @@ class MainActivity :
 
                 return !(rx < x || rx > x + view.width || ry < y || ry > y + view.height)
             }
+
             @RequiresApi(Build.VERSION_CODES.Q)
             override fun onLongPress(e: MotionEvent) {
                 // Open Options
@@ -269,7 +270,8 @@ class MainActivity :
                 if (isVisible(recyclerView)) {
                     recyclerView.performLongClick()
                 } else if (!isEventOnTopOfView(e, dateView)) {
-                    // we are in the homeFragment
+                    // we are in the homeFragment & didn't long-click the date view
+                    // (which would switch to ksana mode instead of opening settings)
                     val vibrator = getSystemService(Vibrator::class.java)
                     vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
                     findNavController(
@@ -342,7 +344,7 @@ private val forbiddenPackageNames = arrayListOf(
     "com.google.android.youtube",  // obviously
     "com.instagram.android",  // yeah
     "com.zhiliaoapp.musically",  // this is tiktok for some reason
-    "org.schabi.newpipe",
+    "org.schabi.newpipe",  // youtube clone
     "com.reddit.frontpage",
     "com.github.libretube",
     "org.wikipedia",  // yep, autism
@@ -369,6 +371,7 @@ fun shouldBeSoftForbidden(packageName: String): Boolean {
         packageName.contains("google") ||
         packageName.contains("unlauncher") ||
         packageName.contains("settings") ||
+        packageName.contains("android.files") ||  // me.zhanghai.android.files
 
         // neither soft-bannable nor fast-track:
         // because I still want the slight launch delay on these.
