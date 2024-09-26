@@ -371,6 +371,7 @@ fun shouldBeSoftForbidden(packageName: String): Boolean {
         packageName.contains("google") ||
         packageName.contains("unlauncher") ||
         packageName.contains("settings") ||
+        packageName.contains("photos") ||
         packageName.contains("android.files") ||  // me.zhanghai.android.files
 
         // neither soft-bannable nor fast-track:
