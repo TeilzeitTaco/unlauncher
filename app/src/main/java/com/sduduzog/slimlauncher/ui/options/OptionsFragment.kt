@@ -1,13 +1,15 @@
 package com.sduduzog.slimlauncher.ui.options
 
 import android.content.Context.MODE_PRIVATE
-import android.content.DialogInterface
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.edit
 import androidx.navigation.Navigation
@@ -23,9 +25,14 @@ import com.sduduzog.slimlauncher.utils.BaseFragment
 import com.sduduzog.slimlauncher.utils.createTitleAndSubtitleText
 import com.sduduzog.slimlauncher.utils.isActivityDefaultLauncher
 import dagger.hilt.android.AndroidEntryPoint
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okio.IOException
 import java.text.SimpleDateFormat
-import java.util.Date
 import javax.inject.Inject
+
 
 @AndroidEntryPoint
 class OptionsFragment : BaseFragment() {
@@ -103,6 +110,117 @@ class OptionsFragment : BaseFragment() {
                 R.id.action_optionsFragment_to_customiseAppDrawerFragment
             )
         )
+
+        val ok = OkHttpClient()
+
+        fun waitToast() {
+            Toast.makeText(context, "Contacting server...", Toast.LENGTH_LONG).show()
+        }
+
+        fun errorOnUi() {
+            activity?.runOnUiThread {
+                Toast.makeText(context ?: return@runOnUiThread,
+                    "Error connecting to server!", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        fun showLastNumbers() {
+            waitToast()
+            val request = Request.Builder()
+                .url("https://flesh-network.ddns.net/raw_last_numbers")
+                .build()
+
+            ok.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: okhttp3.Call, e: IOException) {
+                    errorOnUi()
+                }
+
+                override fun onResponse(call: okhttp3.Call, response: Response) {
+                    val result = response.body?.string() ?: ""
+                    activity?.runOnUiThread {
+                        AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
+                            .apply {
+                                setPositiveButton("Affirm") { _, _ -> }
+                                setTitle("Last Series Numbers")
+                                setMessage("The last document numbers are:\n\n$result")
+                                create()
+                                show()
+                            }
+                    }
+                }
+            })
+        }
+
+        fun doRawQuery() {
+            val input = EditText(requireContext())
+            AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
+                .setTitle("Perform Raw Query")
+                .setMessage("Enter query:")
+                .setView(input)
+                .setPositiveButton(
+                    "Affirm"
+                ) { _, _ ->
+                    val query = input.text.trim()
+                    waitToast()
+                    val request = Request.Builder()
+                        .url("https://flesh-network.ddns.net/raw_query/$query")
+                        .build()
+
+                    ok.newCall(request).enqueue(object : Callback {
+                        override fun onFailure(call: okhttp3.Call, e: IOException) {
+                            errorOnUi()
+                        }
+
+                        override fun onResponse(call: okhttp3.Call, response: Response) {
+                            val result = response.body?.string() ?: ""
+                            activity?.runOnUiThread {
+                                AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
+                                    .apply {
+                                        setPositiveButton("Affirm") { _, _ -> }
+                                        setTitle("Raw Query Results")
+                                        setMessage("The results of the query \"$query\" are:\n\n$result")
+                                        create()
+                                        show()
+                                    }
+                            }
+                        }
+                    })
+                }
+                .setNegativeButton("Cancel") { _, _ -> }.show()
+        }
+
+        fun resolveTag() {
+            val input = EditText(requireContext())
+            AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
+                .setTitle("Resolve Tag")
+                .setMessage("Enter tag to resolve:")
+                .setView(input)
+                .setPositiveButton(
+                    "Affirm"
+                ) { _, _ ->
+                    val tag = input.text.trim().toString().lowercase()
+                    Intent(Intent.ACTION_VIEW).also {
+                        it.setData(Uri.parse("https://flesh-network.ddns.net/resolve/$tag"))
+                        startActivity(it)
+                    }
+                }
+                .setNegativeButton("Cancel") { _, _ -> }.show()
+        }
+
+        // fn ops, implemented ksana7312.52508602384
+        optionsFragment.optionsFragmentShowFnOptions.setOnClickListener {
+            AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme).setItems(
+                arrayOf("1. Perform Raw Query", "2. Show Last Numbers", "3. Resolve Tag")
+            ) { _, which ->
+                when (which) {
+                    0 -> doRawQuery()
+                    1 -> showLastNumbers()
+                    2 -> resolveTag()
+                }
+            }.setPositiveButton("Exit") { _, _ -> }
+                .setTitle("Perform Flesh-Network Action")
+                .create().show()
+        }
 
         val sdf = SimpleDateFormat("MM/dd HH:mm:ss")
         optionsFragment.optionsFragmentShowLog.setOnClickListener {

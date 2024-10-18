@@ -75,6 +75,8 @@
         <item name="android:fontFamily">@font/jmh_typewriter</item>
         <item name="android:textColorHint">@color/fnBrightRed</item>
         <item name="android:textColor">@color/fnBrightRed</item>
+        <item name="android:colorAccent">@color/fnBrightRed</item>
+        <item name="textColorAlertDialogListItem">@color/fnBrightRed</item>
         <item name="android:colorForeground">@color/fnBrightRed</item>
         <item name="android:colorBackground">#201C1C</item>
     </style>

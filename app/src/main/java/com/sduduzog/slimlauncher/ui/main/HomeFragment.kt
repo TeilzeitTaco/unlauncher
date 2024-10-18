@@ -236,7 +236,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             homeFragmentContent.homeFragmentDate.text = "the current instant\n" +
                     "of your life is:\n${getCurrentKsanaTag()}"
 
-            // fix some flickering
+            // fix some flickering (maybe?)
             if (homeFragmentContent.homeFragmentDate.minWidth == 0)
                 homeFragmentContent.homeFragmentDate.minWidth = homeFragmentContent.homeFragmentDate.width
         }

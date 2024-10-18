@@ -2,6 +2,7 @@ package com.sduduzog.slimlauncher
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.AppOpsManager
 import android.app.KeyguardManager
 import android.content.Context
@@ -23,7 +24,6 @@ import android.util.Log
 import android.view.GestureDetector
 import android.view.GestureDetector.SimpleOnGestureListener
 import android.view.Gravity
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
@@ -428,6 +428,12 @@ class OverlayService : AccessibilityService() {
     inner class OverlayUpdater : Runnable {
         override fun run() {
             resumeAlpha = min(resumeAlpha + 0.000_250f, 1f)
+            if (resumeAlpha > 0.90f) {
+                // implemented ksana7312.53642268220: Attempt to kill the app.
+                val am = applicationContext.getSystemService(ACTIVITY_SERVICE) as ActivityManager
+                am.killBackgroundProcesses(allowedPackage)
+            }
+
             view.alpha = resumeAlpha
             view.text = (0..6000).map {
                 "草半豆東亭種婆的躲更蛋地才細水連葉花升金速法情同任連寺品文優高満支隊撲女諤芸九".random()

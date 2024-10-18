@@ -122,3 +122,7 @@ fun AlignmentFormat.gravity(): Int = when (this.number) {
     1 -> 1 // CENTER
     else -> 3 // LEFT
 }
+
+fun isPinnedApp(packageName: String): Boolean {
+    return packageName == "com.spotify.music" || packageName == "at.rsg.pfp" || packageName == "com.google.android.apps.photos"
+}

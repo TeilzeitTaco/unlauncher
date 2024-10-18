@@ -19,18 +19,19 @@ class WallpaperManager(private val mainActivity: MainActivity) {
         if (!isActivityDefaultLauncher(mainActivity)) {
             return
         }
+
         // Cannot inject here because this is called too early in the lifecycle
         val unlauncherDataSource = UnlauncherDataSource(mainActivity, mainActivity.lifecycleScope)
         unlauncherDataSource.corePreferencesRepo.liveData().observe(mainActivity) {
-            if (it.keepDeviceWallpaper && mainActivity.getUserSelectedThemeRes() == resid) {
-                // only change the wallpaper when user has allowed it and
-                // preventing to change the wallpaper multiple times once it is rechecked in the settings
+            // only change the wallpaper when user has allowed it and
+            // preventing to change the wallpaper multiple times once it is rechecked in the settings
+            if (it.keepDeviceWallpaper && mainActivity.getUserSelectedThemeRes() == resid)
                 return@observe
-            }
+
             @ColorInt val backgroundColor = getThemeBackgroundColor(theme, resid)
-            if (backgroundColor == Int.MIN_VALUE) {
+            if (backgroundColor == Int.MIN_VALUE)
                 return@observe
-            }
+
             mainActivity.lifecycleScope.launch(Dispatchers.IO) {
                 setWallpaperBackgroundColor(backgroundColor)
             }

@@ -3,6 +3,7 @@ package com.sduduzog.slimlauncher.adapters
 import android.annotation.SuppressLint
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,6 +16,8 @@ import com.sduduzog.slimlauncher.datasource.UnlauncherDataSource
 import com.sduduzog.slimlauncher.ui.main.HomeFragment
 import com.sduduzog.slimlauncher.utils.firstUppercase
 import com.sduduzog.slimlauncher.utils.gravity
+import com.sduduzog.slimlauncher.utils.isPinnedApp
+import kotlin.math.min
 
 class AppDrawerAdapter(
     private val listener: HomeFragment.AppDrawerListener,
@@ -93,18 +96,29 @@ class AppDrawerAdapter(
         val corePreferences = unlauncherDataSource.corePreferencesRepo.get()
         val showDrawerHeadings = corePreferences.showDrawerHeadings
         val searchAllApps = corePreferences.searchAllAppsInDrawer && filterQuery != ""
+        val noQuery = filterQuery == ""
+        if (!noQuery) {
+            offset = 0
+        }
+
         val displayableApps = apps
             .filter { app ->
-                (app.displayInDrawer || searchAllApps) && regex.replace(app.displayName, "")
+                !(!noQuery && isPinnedApp(app.packageName)) && (app.displayInDrawer || searchAllApps) && regex.replace(app.displayName, "")
                     .contains(filterQuery, ignoreCase = true)
             }
 
-        val includeHeadings = !showDrawerHeadings || filterQuery != ""
+        val includeHeadings = !showDrawerHeadings || !noQuery
+
         val updatedApps = when (includeHeadings) {
             true ->
                 displayableApps
                     .sortedWith { a, b ->
+                        val aIsSpecial = isPinnedApp(a.packageName)
+                        val bIsSpecial = isPinnedApp(b.packageName)
                         when {
+                            // pinned apps, implemented ksana7312.56206764119
+                            noQuery && (aIsSpecial xor bIsSpecial) -> if (aIsSpecial) -1 else 1
+
                             // if an app's name starts with the query prefer it
                             onlyFirstStringStartsWith(
                                 a.displayName,
@@ -116,6 +130,7 @@ class AppDrawerAdapter(
                                 a.displayName,
                                 filterQuery
                             ) -> 1
+
                             // if both or none start with the query sort in normal oder
                             else -> a.displayName.compareTo(b.displayName, true)
                         }
@@ -159,8 +174,9 @@ class AppDrawerAdapter(
         }
     }
 
-    inner class ItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    private var offset = 0
 
+    inner class ItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val item: TextView = itemView.findViewById(R.id.aa_list_item_app_name)
 
         override fun toString(): String {
@@ -169,8 +185,15 @@ class AppDrawerAdapter(
 
         @SuppressLint("SetTextI18n")
         fun bind(item: UnlauncherApp, position: Int) {
-            this.item.text = "${position + 1}. | ${item.displayName.lowercase().replace(' ', '-')}"
-            this.item.gravity = gravity
+            if (isPinnedApp(item.packageName)) {
+                this.item.text = "*  [ ${item.displayName.lowercase()} ]"
+                this.item.gravity = Gravity.LEFT
+                if (position + 1 > offset)
+                    offset = position + 1
+            } else {
+                this.item.text = "${item.displayName.lowercase()} ${(position + 1 - offset).toString().padStart(3)}."
+                this.item.gravity = Gravity.RIGHT
+            }
         }
     }
 
