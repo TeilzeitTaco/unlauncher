@@ -263,20 +263,25 @@ class MainActivity :
             @RequiresApi(Build.VERSION_CODES.Q)
             override fun onLongPress(e: MotionEvent) {
                 // Open Options
-                val recyclerView = findViewById<RecyclerView>(R.id.app_drawer_fragment_list) ?: return
-                val homeView = findViewById<View>(R.id.home_fragment) ?: return
-                val dateView = findViewById<View>(R.id.home_fragment_date) ?: return
-
-                if (isVisible(recyclerView)) {
+                val recyclerView = findViewById<RecyclerView>(R.id.app_drawer_fragment_list)
+                if (recyclerView != null && isVisible(recyclerView)) {
                     recyclerView.performLongClick()
-                } else if (!isEventOnTopOfView(e, dateView)) {
-                    // we are in the homeFragment & didn't long-click the date view
+                } else {
+                    val dateView = findViewById<View>(R.id.home_fragment_date)
+                    if (dateView != null && isEventOnTopOfView(e, dateView))
+                        return
+
+                    val verseView = findViewById<View>(R.id.home_bible_quote)
+                    if (verseView != null && isEventOnTopOfView(e, verseView))
+                        return
+
+                    // we are in the homeFragment & didn't long-click the date view etc.
                     // (which would switch to ksana mode instead of opening settings)
                     val vibrator = getSystemService(Vibrator::class.java)
                     vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-                    findNavController(
-                        homeView
-                    ).navigate(R.id.action_homeFragment_to_optionsFragment, null)
+
+                    val homeView = findViewById<View>(R.id.home_fragment) ?: return
+                    findNavController(homeView).navigate(R.id.action_homeFragment_to_optionsFragment, null)
                 }
             }
 

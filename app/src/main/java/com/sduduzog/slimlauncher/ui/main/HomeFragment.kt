@@ -28,7 +28,6 @@ import android.os.Vibrator
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.provider.MediaStore
-import android.provider.MediaStore.Audio.Media
 import android.provider.Settings
 import android.text.format.DateFormat
 import android.util.Log
@@ -49,7 +48,6 @@ import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AlertDialog
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -60,7 +58,6 @@ import androidx.constraintlayout.motion.widget.MotionLayout.TransitionListener
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
-import androidx.core.graphics.scale
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
@@ -91,7 +88,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.image.BufferedImage
-import java.io.BufferedReader
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -133,6 +129,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 val no = elems[0].trim().ifEmpty { return@forEach }
                 var text = elems[1].trim().ifEmpty { return@forEach }
                 text = text.replace("[", "").replace("]", "")
+                    .replace("(", "").replace(")", "")
                 if (text.endsWith(',') || text.endsWith(':') || text.endsWith(';'))
                     text = text.trim(',', ':', ';') + "."
 
@@ -233,8 +230,21 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
 
         wallpaperBox = homeFragmentContent.homeWallpaperBox
-        bibleQuoteView = homeFragmentContent.homeBibleQuote
         bibleQuoteSourceView = homeFragmentContent.homeBibleQuoteSource
+        bibleQuoteView = homeFragmentContent.homeBibleQuote.apply {
+            setOnClickListener {
+                bibleQuoteView?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                showNextVerse()
+            }
+            setOnLongClickListener {
+                bibleQuoteView?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                requireActivity().packageManager.getLaunchIntentForPackage("de.dbg.bibel").also {
+                    launchActivity(bibleQuoteView!!, it!!)
+                }
+                true
+            }
+        }
+
         getRandomShuffleImage()
     }
 
@@ -275,7 +285,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
             // fix some flickering (maybe?)
             if (homeFragmentContent.homeFragmentDate.minWidth == 0)
-                homeFragmentContent.homeFragmentDate.minWidth = homeFragmentContent.homeFragmentDate.width
+                homeFragmentContent.homeFragmentDate.minWidth = homeFragmentContent.homeFragmentDate.width + 64
         }
     }
 
@@ -793,8 +803,10 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
     }
 
-    private fun getRandomShuffleImage() {
-        val uris = ArrayList<Triple<String, Uri, Long>>()
+    private val imageUris = ArrayList<Triple<String, Uri, Long>>()
+
+    private fun fetchImageUris() {
+        imageUris.clear()
         requireContext().contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             arrayOf(MediaStore.Images.ImageColumns._ID, MediaStore.Images.ImageColumns.DISPLAY_NAME,
                 MediaStore.Images.ImageColumns.RELATIVE_PATH, MediaStore.Images.ImageColumns.DATE_ADDED),
@@ -802,8 +814,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             while (it.moveToNext()) {
                 val id = it.getLong(0)
                 val date = it.getLong(3)
-                uris.add(
-                    Triple(
+                imageUris.add(Triple(
                     it.getString(1),
                     ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id),
                     date)
@@ -811,34 +822,43 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             }
         }
 
-        val chosenPicture = uris.random()
-        val inputStream = requireContext().contentResolver.openInputStream(chosenPicture.second)
-        val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
-        val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
-        val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), true)
-        wallpaperBox?.setImageBitmap(scaled)
-        wallpaperBox?.setOnClickListener {
-            wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            val sdf = SimpleDateFormat("dd.MM.YYYY, HH:mm:ss")
-            Toast.makeText(requireContext(), "taken ${sdf.format(Date(chosenPicture.third * 1000L))}", Toast.LENGTH_SHORT).show()
+        imageUris.shuffle()
+    }
+
+    private fun getRandomShuffleImage() {
+        // we show each image once before repeating
+        imageUris.ifEmpty { fetchImageUris() }
+        if (imageUris.isNotEmpty()) {
+            val chosenPicture = imageUris.removeFirst()
+            val inputStream = requireContext().contentResolver.openInputStream(chosenPicture.second)
+            val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
+            val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
+            val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), true)
+            wallpaperBox?.apply {
+                setImageBitmap(scaled)
+                setOnClickListener {
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    val sdf = SimpleDateFormat("dd.MM.YYYY, HH:mm:ss")
+                    Toast.makeText(requireContext(),
+                        "taken ${sdf.format(Date(chosenPicture.third * 1000L))}.\n${imageUris.size} photo${if (imageUris.size != 1) "s" else ""} left in stack.",
+                        Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         updateBibleQuote()
     }
 
     private fun updateBibleQuote(retry: Int = 0) {
-        if (bibleVerses.isEmpty()) return
+        bibleVerses.ifEmpty { return }
         bibleQuoteView?: return
-        if (retry >= 32) {  // picture too big
+        if (retry >= 64) {  // picture too big to fit any verse, it seems; give up
             bibleQuoteView?.text = ""
             bibleQuoteSourceView?.text = ""
             return
         }
 
-        val verse = bibleVerses.random()
-        val formattedVerse = "» ${verse.second}\u00A0«"  // this is a &nbsp;
-        bibleQuoteView!!.text = formattedVerse
-        bibleQuoteSourceView!!.text = "— ${verse.first} "
+        setBibleQuote(bibleVerses.random())
 
         // check if the text is too long and retry if it is
         ksanaHandler.postDelayed({
@@ -846,12 +866,28 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 val xy = IntArray(2)
                 bibleQuoteView!!.getLocationOnScreen(xy)
                 val displayHeight = requireActivity().windowManager.defaultDisplay.height
-                if ((xy[1] + bibleQuoteView!!.height + 48) > displayHeight) {
+                if ((xy[1] + bibleQuoteView!!.height + 110) > displayHeight) {
                     // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
-                    updateBibleQuote(retry + 1)  // try again
+                    updateBibleQuote(retry + 1)  // try again, hope for a shorter verse
                 }
             }
         }, 1)
+    }
+
+    private var currentBibleVerse: Pair<String, String>? = null
+
+    private fun setBibleQuote(verse: Pair<String, String>) {
+        currentBibleVerse = verse
+        val formattedVerse = "» ${verse.second}\u00A0«"  // this is a &nbsp;
+        bibleQuoteView!!.text = formattedVerse
+        bibleQuoteSourceView!!.text = "— ${verse.first} "
+    }
+
+    private fun showNextVerse() {
+        currentBibleVerse ?: return
+        (bibleVerses.getOrNull(bibleVerses.indexOf(currentBibleVerse) + 1) ?: bibleVerses.first()).also {
+            setBibleQuote(it)
+        }
     }
 
     @Throws(IOException::class)
