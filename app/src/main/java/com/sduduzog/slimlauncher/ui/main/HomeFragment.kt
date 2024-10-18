@@ -129,7 +129,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         Thread {
             resources.openRawResource(R.raw.kjv).reader().readLines().forEach {
                 val elems = it.split("\t")
-                bibleVerses.add(Pair(elems[0].trim(), elems[1].trim()))
+                bibleVerses.add(Pair(elems[0].trim(), elems[1].trim().replace("[", "").replace("]", "")))
             }
             // activity?.runOnUiThread {
             //     Toast.makeText(context, "Finished reading the Bible!", Toast.LENGTH_LONG).show()
@@ -154,6 +154,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     private lateinit var adapter2: HomeAdapter
     private var wallpaperBox: ImageView? = null
     private var bibleQuoteView: TextView? = null
+    private var bibleQuoteSourceView: TextView? = null
     private var homeAppList: List<HomeApp> = ArrayList()
 
     private fun distributeApps() {
@@ -226,6 +227,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
         wallpaperBox = homeFragmentContent.homeWallpaperBox
         bibleQuoteView = homeFragmentContent.homeBibleQuote
+        bibleQuoteSourceView = homeFragmentContent.homeBibleQuoteSource
         getRandomShuffleImage()
     }
 
@@ -817,12 +819,31 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         updateBibleQuote()
     }
 
-    private fun updateBibleQuote() {
+    private fun updateBibleQuote(retry: Int = 0) {
         if (bibleVerses.isEmpty()) return
+        bibleQuoteView?: return
+        if (retry >= 32) {  // picture too big
+            bibleQuoteView?.text = ""
+            return
+        }
 
         val verse = bibleVerses.random()
-        val formattedVerse = "» ${verse.second} «\n— ${verse.first} "
-        bibleQuoteView?.text = formattedVerse
+        val formattedVerse = "» ${verse.second}\u00A0«"  // this is a &nbsp;
+        bibleQuoteView!!.text = formattedVerse
+        bibleQuoteSourceView!!.text = "— ${verse.first} "
+
+        // check if the text is too long and retry if it is
+        ksanaHandler.postDelayed({
+            requireActivity().runOnUiThread {
+                val xy = IntArray(2)
+                bibleQuoteView!!.getLocationOnScreen(xy)
+                val displayHeight = requireActivity().windowManager.defaultDisplay.height
+                if ((xy[1] + bibleQuoteView!!.height + 24) > displayHeight) {
+                    // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
+                    updateBibleQuote(retry + 1)  // try again
+                }
+            }
+        }, 1)
     }
 
     @Throws(IOException::class)

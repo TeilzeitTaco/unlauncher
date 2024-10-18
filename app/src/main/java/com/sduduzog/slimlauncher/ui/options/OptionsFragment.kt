@@ -172,13 +172,13 @@ class OptionsFragment : BaseFragment() {
                         }
 
                         override fun onResponse(call: okhttp3.Call, response: Response) {
-                            val result = response.body?.string() ?: ""
+                            val result = (response.body?.string()?.trim() ?: "").ifEmpty { "(no results)" }
                             activity?.runOnUiThread {
                                 AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
                                     .apply {
                                         setPositiveButton("Affirm") { _, _ -> }
                                         setTitle("Raw Query Results")
-                                        setMessage("The results of the query \"$query\" are:\n\n$result")
+                                        setMessage("The results of the query \"$query\" are:\n\n${result}")
                                         create()
                                         show()
                                     }
