@@ -127,9 +127,16 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         uninstallAppLauncher = registerForActivityResult(StartActivityForResult()) { refreshApps() }
 
         Thread {
+            // read and process tab-separated verse/text pairs from resources file
             resources.openRawResource(R.raw.kjv).reader().readLines().forEach {
                 val elems = it.split("\t")
-                bibleVerses.add(Pair(elems[0].trim(), elems[1].trim().replace("[", "").replace("]", "")))
+                val no = elems[0].trim().ifEmpty { return@forEach }
+                var text = elems[1].trim().ifEmpty { return@forEach }
+                text = text.replace("[", "").replace("]", "")
+                if (text.endsWith(',') || text.endsWith(':') || text.endsWith(';'))
+                    text = text.trim(',', ':', ';') + "."
+
+                bibleVerses.add(Pair(no, text))
             }
             // activity?.runOnUiThread {
             //     Toast.makeText(context, "Finished reading the Bible!", Toast.LENGTH_LONG).show()
@@ -808,7 +815,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         val inputStream = requireContext().contentResolver.openInputStream(chosenPicture.second)
         val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
         val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
-        val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), false)
+        val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), true)
         wallpaperBox?.setImageBitmap(scaled)
         wallpaperBox?.setOnClickListener {
             wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
@@ -824,6 +831,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         bibleQuoteView?: return
         if (retry >= 32) {  // picture too big
             bibleQuoteView?.text = ""
+            bibleQuoteSourceView?.text = ""
             return
         }
 
