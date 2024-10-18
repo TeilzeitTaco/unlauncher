@@ -7,12 +7,15 @@ import android.app.KeyguardManager
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -25,10 +28,12 @@ import android.os.Vibrator
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.provider.MediaStore
+import android.provider.MediaStore.Audio.Media
 import android.provider.Settings
 import android.text.format.DateFormat
 import android.util.Log
 import android.util.Size
+import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.MenuItem
@@ -37,11 +42,13 @@ import android.view.View.OnClickListener
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AlertDialog
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -51,6 +58,8 @@ import androidx.constraintlayout.motion.widget.MotionLayout
 import androidx.constraintlayout.motion.widget.MotionLayout.TransitionListener
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.graphics.scale
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
@@ -82,6 +91,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.image.BufferedImage
+import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -130,6 +140,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
     private lateinit var adapter1: HomeAdapter
     private lateinit var adapter2: HomeAdapter
+    private var wallpaperBox: ImageView? = null
     private var homeAppList: List<HomeApp> = ArrayList()
 
     private fun distributeApps() {
@@ -199,6 +210,9 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             homeFragmentContent.homeFragmentDate
                 .visibility = if (clockType != ClockType.none) View.VISIBLE else View.GONE
         }
+
+        wallpaperBox = homeFragmentContent.homeWallpaperBox
+        getRandomShuffleImage()
     }
 
     override fun onStart() {
@@ -272,6 +286,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         if (layoutManager.findFirstCompletelyVisibleItemPosition() != 0) {
             appDrawerFragmentList.scrollToPosition(0)
         }
+
+        getRandomShuffleImage()
     }
 
     private fun refreshApps() {
@@ -408,9 +424,11 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         )
 
         // apply gravity to search box
-        unlauncherDataSource.corePreferencesRepo.liveData().observe(viewLifecycleOwner) { corePrefs ->
-            homeFragmentContent.appDrawerEditText.gravity = corePrefs.alignmentFormat.gravity()
-        }
+        // unlauncherDataSource.corePreferencesRepo.liveData().observe(viewLifecycleOwner) { corePrefs ->
+        //    homeFragmentContent.appDrawerEditText.gravity = corePrefs.alignmentFormat.gravity()
+        // }
+        // as of ksana7312.66746812323 (the new wallpaper layout) this is obsolete
+        homeFragmentContent.appDrawerEditText.gravity = Gravity.CENTER
 
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         homeFragmentContent.appDrawerEditText.setOnEditorActionListener { _, actionId, _ ->
@@ -526,6 +544,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     override fun onBack(): Boolean {
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         shuffleHomeApps()
+        getRandomShuffleImage()
         homeFragment.transitionToStart()
         return true
     }
@@ -748,6 +767,37 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         fun onAppClicked(app: UnlauncherApp) {
             // these are the apps in the app drawer
             launchAppRestricted(app.packageName, app.className, app.userSerial)
+        }
+    }
+
+    private fun getRandomShuffleImage() {
+        val uris = ArrayList<Triple<String, Uri, Long>>()
+        requireContext().contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.Images.ImageColumns._ID, MediaStore.Images.ImageColumns.DISPLAY_NAME,
+                MediaStore.Images.ImageColumns.RELATIVE_PATH, MediaStore.Images.ImageColumns.DATE_ADDED),
+            "${MediaStore.Images.ImageColumns.RELATIVE_PATH} = ?", arrayOf("Pictures/shuffle/"), null)!!.use {
+            while (it.moveToNext()) {
+                val id = it.getLong(0)
+                val date = it.getLong(3)
+                uris.add(
+                    Triple(
+                    it.getString(1),
+                    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id),
+                    date)
+                )
+            }
+        }
+
+        val chosenPicture = uris.random()
+        val inputStream = requireContext().contentResolver.openInputStream(chosenPicture.second)
+        val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
+        val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
+        val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), false)
+        wallpaperBox?.setImageBitmap(scaled)
+        wallpaperBox?.setOnClickListener {
+            wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            val sdf = SimpleDateFormat("dd.MM.YYYY HH:mm:ss")
+            Toast.makeText(requireContext(), "taken ${sdf.format(Date(chosenPicture.third * 1000L))}", Toast.LENGTH_SHORT).show()
         }
     }
 
