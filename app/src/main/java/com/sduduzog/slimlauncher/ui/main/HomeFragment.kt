@@ -846,7 +846,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 val xy = IntArray(2)
                 bibleQuoteView!!.getLocationOnScreen(xy)
                 val displayHeight = requireActivity().windowManager.defaultDisplay.height
-                if ((xy[1] + bibleQuoteView!!.height + 24) > displayHeight) {
+                if ((xy[1] + bibleQuoteView!!.height + 48) > displayHeight) {
                     // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
                     updateBibleQuote(retry + 1)  // try again
                 }
