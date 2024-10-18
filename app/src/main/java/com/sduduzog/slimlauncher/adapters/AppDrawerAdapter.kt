@@ -17,7 +17,7 @@ import com.sduduzog.slimlauncher.ui.main.HomeFragment
 import com.sduduzog.slimlauncher.utils.firstUppercase
 import com.sduduzog.slimlauncher.utils.gravity
 import com.sduduzog.slimlauncher.utils.isPinnedApp
-import kotlin.math.min
+
 
 class AppDrawerAdapter(
     private val listener: HomeFragment.AppDrawerListener,

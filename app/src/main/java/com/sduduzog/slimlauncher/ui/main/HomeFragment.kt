@@ -44,6 +44,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.ImageView
 import android.widget.PopupMenu
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
@@ -85,13 +86,12 @@ import com.sduduzog.slimlauncher.models.MainViewModel
 import com.sduduzog.slimlauncher.ui.dialogs.RenameAppDisplayNameDialog
 import com.sduduzog.slimlauncher.utils.BaseFragment
 import com.sduduzog.slimlauncher.utils.OnLaunchAppListener
-import com.sduduzog.slimlauncher.utils.gravity
 import com.sduduzog.slimlauncher.utils.isSystemApp
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.awt.image.BufferedImage
-import java.io.File
+import java.io.BufferedReader
 import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -118,11 +118,23 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     private lateinit var appDrawerAdapter: AppDrawerAdapter
     private lateinit var uninstallAppLauncher: ActivityResultLauncher<Intent>
 
+    private val bibleVerses = ArrayList<Pair<String, String>>()
+
     private var isKsanaMode = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         uninstallAppLauncher = registerForActivityResult(StartActivityForResult()) { refreshApps() }
+
+        Thread {
+            resources.openRawResource(R.raw.kjv).reader().readLines().forEach {
+                val elems = it.split("\t")
+                bibleVerses.add(Pair(elems[0].trim(), elems[1].trim()))
+            }
+            // activity?.runOnUiThread {
+            //     Toast.makeText(context, "Finished reading the Bible!", Toast.LENGTH_LONG).show()
+            // }
+        }.start()
     }
 
     override fun onCreateView(
@@ -141,6 +153,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     private lateinit var adapter1: HomeAdapter
     private lateinit var adapter2: HomeAdapter
     private var wallpaperBox: ImageView? = null
+    private var bibleQuoteView: TextView? = null
     private var homeAppList: List<HomeApp> = ArrayList()
 
     private fun distributeApps() {
@@ -212,6 +225,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
 
         wallpaperBox = homeFragmentContent.homeWallpaperBox
+        bibleQuoteView = homeFragmentContent.homeBibleQuote
         getRandomShuffleImage()
     }
 
@@ -796,9 +810,19 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         wallpaperBox?.setImageBitmap(scaled)
         wallpaperBox?.setOnClickListener {
             wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            val sdf = SimpleDateFormat("dd.MM.YYYY HH:mm:ss")
+            val sdf = SimpleDateFormat("dd.MM.YYYY, HH:mm:ss")
             Toast.makeText(requireContext(), "taken ${sdf.format(Date(chosenPicture.third * 1000L))}", Toast.LENGTH_SHORT).show()
         }
+
+        updateBibleQuote()
+    }
+
+    private fun updateBibleQuote() {
+        if (bibleVerses.isEmpty()) return
+
+        val verse = bibleVerses.random()
+        val formattedVerse = "» ${verse.second} «\n— ${verse.first} "
+        bibleQuoteView?.text = formattedVerse
     }
 
     @Throws(IOException::class)

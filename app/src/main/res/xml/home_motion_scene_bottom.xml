@@ -24,6 +24,15 @@
             app:layout_constraintStart_toStartOf="parent" />
 
         <Constraint
+            android:id="@+id/home_bible_quote"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            app:layout_constraintStart_toStartOf="@id/home_wallpaper_box"
+            app:layout_constraintEnd_toEndOf="@id/home_wallpaper_box"
+            app:layout_constraintTop_toBottomOf="@id/home_wallpaper_box"
+            android:layout_marginTop="@dimen/_14sdp"/>
+
+        <Constraint
             android:id="@+id/home_fragment_analog_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -145,6 +154,16 @@
         <Constraint
             android:id="@+id/home_wallpaper_box"
             android:alpha="-1" />
+
+        <Constraint
+            android:id="@+id/home_bible_quote"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:alpha="-1"
+            app:layout_constraintStart_toStartOf="@id/home_wallpaper_box"
+            app:layout_constraintEnd_toEndOf="@id/home_wallpaper_box"
+            app:layout_constraintTop_toBottomOf="@id/home_wallpaper_box"
+            android:layout_marginTop="@dimen/_14sdp"/>
 
         <Constraint
             android:id="@+id/home_fragment_time"
