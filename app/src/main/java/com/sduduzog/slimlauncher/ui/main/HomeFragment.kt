@@ -129,7 +129,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 val no = elems[0].trim().ifEmpty { return@forEach }
                 var text = elems[1].trim().ifEmpty { return@forEach }
                 text = text.replace("[", "").replace("]", "")
-                    .replace("(", "").replace(")", "")
+                    .replace("(", "").replace(")", "").replace("\n", "")
                 if (text.endsWith(',') || text.endsWith(':') || text.endsWith(';'))
                     text = text.trim(',', ':', ';') + "."
 
@@ -843,6 +843,15 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                         "taken ${sdf.format(Date(chosenPicture.third * 1000L))}.\n${imageUris.size} photo${if (imageUris.size != 1) "s" else ""} left in stack.",
                         Toast.LENGTH_SHORT).show()
                 }
+
+                setOnLongClickListener {
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    startActivity(Intent().apply {
+                        setAction(Intent.ACTION_VIEW)
+                        setDataAndType(chosenPicture.second, "image/*")
+                    })
+                    true
+                }
             }
         }
 
@@ -866,7 +875,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 val xy = IntArray(2)
                 bibleQuoteView!!.getLocationOnScreen(xy)
                 val displayHeight = requireActivity().windowManager.defaultDisplay.height
-                if ((xy[1] + bibleQuoteView!!.height + 110) > displayHeight) {
+                if ((xy[1] + bibleQuoteView!!.height + 150) > displayHeight) {
                     // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
                     updateBibleQuote(retry + 1)  // try again, hope for a shorter verse
                 }
@@ -878,7 +887,11 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
     private fun setBibleQuote(verse: Pair<String, String>) {
         currentBibleVerse = verse
-        val formattedVerse = "» ${verse.second}\u00A0«"  // this is a &nbsp;
+        val solidVerse = verse.second.replace(Regex("([^,;:.!?] ([^ ]{1,5}))? ([^ ]{1,9})$")) { matchResult ->
+            // Toast.makeText(requireContext(), matchResult.value, Toast.LENGTH_LONG).show()
+            matchResult.value.replace(" ", "\u00A0")
+        }.replace(";", ";\n")
+        val formattedVerse = "» ${solidVerse}\u00A0«"  // this is a &nbsp;
         bibleQuoteView!!.text = formattedVerse
         bibleQuoteSourceView!!.text = "— ${verse.first} "
     }

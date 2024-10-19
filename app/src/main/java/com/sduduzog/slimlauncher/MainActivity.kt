@@ -267,12 +267,19 @@ class MainActivity :
                 if (recyclerView != null && isVisible(recyclerView)) {
                     recyclerView.performLongClick()
                 } else {
+                    // switch to ksana mode
                     val dateView = findViewById<View>(R.id.home_fragment_date)
                     if (dateView != null && isEventOnTopOfView(e, dateView))
                         return
 
+                    // show next verse
                     val verseView = findViewById<View>(R.id.home_bible_quote)
                     if (verseView != null && isEventOnTopOfView(e, verseView))
+                        return
+
+                    // open in gallery
+                    val wallpaperView = findViewById<View>(R.id.home_wallpaper_box)
+                    if (wallpaperView != null && isEventOnTopOfView(e, wallpaperView))
                         return
 
                     // we are in the homeFragment & didn't long-click the date view etc.
