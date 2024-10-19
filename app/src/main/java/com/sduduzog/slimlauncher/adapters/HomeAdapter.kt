@@ -1,6 +1,9 @@
 package com.sduduzog.slimlauncher.adapters
 
 import android.annotation.SuppressLint
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -18,6 +21,7 @@ class HomeAdapter(
 ) : RecyclerView.Adapter<HomeAdapter.ViewHolder>() {
 
     private var apps: List<HomeApp> = listOf()
+    private val monospaceSpan = MonospaceSpan("o").apply { squish = 1.08f }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -27,7 +31,13 @@ class HomeAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = apps.elementAt(position)
-        holder.mLabelView.text = "[ " + (item.appNickname ?: item.appName).lowercase() + " ]"
+
+        holder.mLabelView.text = SpannableStringBuilder().apply {
+            append("[ ")
+            append((item.appNickname ?: item.appName).lowercase(), monospaceSpan, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            append(" ]")
+        }
+
         holder.mLabelView.setOnClickListener {
             listener.onLaunch(item, it)
         }

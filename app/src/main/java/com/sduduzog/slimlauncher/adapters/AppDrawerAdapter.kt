@@ -252,7 +252,7 @@ sealed class AppDrawerRow(val rowType: RowType) {
 /** A [ReplacementSpan] that monospaces single-line text.  */
 class MonospaceSpan : ReplacementSpan {
     private val relativeCharacters: String?
-    private val squish = 0.945f  // push chars together a bit
+    var squish = 0.945f  // push chars together a bit
 
     /**
      * Set the `relativeMonospace` flag to true to monospace based on the widest character
