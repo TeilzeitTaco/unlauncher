@@ -516,7 +516,12 @@ class OverlayService : AccessibilityService() {
         keyguardManager = applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         vibrator = applicationContext.getSystemService(Vibrator::class.java)
 
-        view = TextView(this.applicationContext).apply {
+        addMayaView()
+        addPillBlockerView()
+    }
+
+    private fun addMayaView() {
+        view = TextView(applicationContext).apply {
             alpha = 0f
             visibility = View.INVISIBLE
             setBackgroundColor(Color.RED)
@@ -528,18 +533,43 @@ class OverlayService : AccessibilityService() {
         // https://developer.android.com/about/versions/12/behavior-changes-all?hl=de#untrusted-touch-events-affected-apps
         // https://www.reddit.com/r/tasker/comments/xkhm3q/overlay_scene_is_always_transparent/
         // adb shell settings put global maximum_obscuring_opacity_for_touch 1
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
-            PixelFormat.RGBA_8888
-        ).apply {
-            gravity = Gravity.START or Gravity.TOP
-            x = 0
-            y = 0
+        (getSystemService(WINDOW_SERVICE) as WindowManager).addView(view,
+            WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.RGBA_8888
+            ).apply {
+                gravity = Gravity.START or Gravity.TOP
+                x = 0
+                y = 0
+            }
+        )
+    }
+
+    private fun addPillBlockerView() {
+        // this hides the navigation pill on my google pixel 7a
+        val blockerView = TextView(applicationContext).apply {
+            setBackgroundColor(Color.BLACK)
+            text = "flesh-network"
+            setTextColor(0)
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            height = 40  // this is precise
         }
 
-        (getSystemService(WINDOW_SERVICE) as WindowManager).addView(view, params)
+        (getSystemService(WINDOW_SERVICE) as WindowManager).addView(blockerView,
+            WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                PixelFormat.RGBA_8888
+            ).apply {
+                gravity = Gravity.START or Gravity.BOTTOM
+                x = 0
+                y = 0
+            }
+        )
     }
 }
