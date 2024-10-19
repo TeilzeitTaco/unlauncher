@@ -6,9 +6,7 @@
         <item>à droite</item>
     </string-array>
     <string-array name="clock_type_array">
-        <item>Aucune</item>
         <item>Numérique</item>
-        <item>Analogue</item>
         <item>Binaire</item>
     </string-array>
     <string-array name="quick_button_array">

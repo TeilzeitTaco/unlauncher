@@ -8,9 +8,7 @@
         <item>右</item>
     </string-array>
     <string-array name="clock_type_array">
-        <item>无时钟</item>
         <item>数字时钟</item>
-        <item>指针时钟</item>
         <item>二进制时钟</item>
     </string-array>
     <string-array name="quick_button_array">

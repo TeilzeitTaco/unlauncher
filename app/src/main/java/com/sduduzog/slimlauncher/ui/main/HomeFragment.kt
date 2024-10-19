@@ -29,6 +29,8 @@ import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.provider.MediaStore
 import android.provider.Settings
+import android.text.Spannable
+import android.text.SpannableStringBuilder
 import android.text.format.DateFormat
 import android.util.Log
 import android.util.Size
@@ -72,6 +74,7 @@ import com.sduduzog.slimlauncher.OverlayService
 import com.sduduzog.slimlauncher.R
 import com.sduduzog.slimlauncher.adapters.AppDrawerAdapter
 import com.sduduzog.slimlauncher.adapters.HomeAdapter
+import com.sduduzog.slimlauncher.adapters.MonospaceSpan
 import com.sduduzog.slimlauncher.databinding.HomeFragmentBottomBinding
 import com.sduduzog.slimlauncher.databinding.HomeFragmentContentBinding
 import com.sduduzog.slimlauncher.databinding.HomeFragmentDefaultBinding
@@ -269,27 +272,32 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun getCurrentKsanaTag(): String {
+    private fun getCurrentKsanaTimestamp(): String {
         // this is the flesh-network blog ksana system (implemented ksana7287.46930444425)
         val day0 = Instant.parse("2004-10-11T22:00:00Z")
         val now = Instant.now()
         val days = day0.until(now, ChronoUnit.DAYS)
         val ms = day0.until(now, ChronoUnit.MICROS) % (60L * 60 * 24 * 1000 * 1000)
-        return "ksana${days + 1}.${ms.toString().padStart(11, '0')}"
+        return "${days + 1}.${ms.toString().padStart(11, '0')}"
     }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun getCurrentKsanaTag(): String {
+        return "ksana${getCurrentKsanaTimestamp()}"
+    }
+
+    private val ksanaMonospaceSpan = MonospaceSpan("0123456789.")
 
     @SuppressLint("SetTextI18n")
     @RequiresApi(Build.VERSION_CODES.O)
     private fun updateKsana() {
-        val view = view
-        if (view != null) {
-            val homeFragmentContent = HomeFragmentContentBinding.bind(view)
-            homeFragmentContent.homeFragmentDate.text = "the current instant\n" +
-                    "of your life is:\n${getCurrentKsanaTag()}"
-
-            // fix some flickering (maybe?)
-            if (homeFragmentContent.homeFragmentDate.minWidth == 0)
-                homeFragmentContent.homeFragmentDate.minWidth = homeFragmentContent.homeFragmentDate.width + 64
+        val homeFragmentContent = HomeFragmentContentBinding.bind(view ?: return)
+        homeFragmentContent.homeFragmentDate.text = SpannableStringBuilder().apply {
+            append("the current instant\nof your life is:\nksana")
+            val (a, b) = getCurrentKsanaTimestamp().split(".", limit = 2)
+            append(a, ksanaMonospaceSpan, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            append(".")
+            append(b, ksanaMonospaceSpan, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 

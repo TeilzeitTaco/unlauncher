@@ -20,11 +20,18 @@ class ChooseClockTypeDialog : DialogFragment() {
         val builder = AlertDialog.Builder(requireContext())
 
         val repo = unlauncherDataSource.corePreferencesRepo
-        val active = repo.get().clockType.number
+        val active = if (repo.get().clockType == ClockType.digital) 0 else 1
+
         builder.setTitle(R.string.choose_clock_type_dialog_title)
         builder.setSingleChoiceItems(R.array.clock_type_array, active) { dialogInterface, i ->
             dialogInterface.dismiss()
-            repo.updateClockType(ClockType.forNumber(i))
+            when(i) {
+                0 -> repo.updateClockType(ClockType.digital)
+                1 -> repo.updateClockType(ClockType.binary)
+            }
+            // TODO: I crudely disabled both the analog clock and the no clock option,
+            // because they do not work with the new wallpaper layout.
+            // repo.updateClockType(ClockType.forNumber(i))
         }
         return builder.create()
     }

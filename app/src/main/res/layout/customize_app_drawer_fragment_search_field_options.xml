@@ -63,6 +63,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/margin_list_items"
                 android:text="@string/customize_app_drawer_fragment_search_bar_position"
+                android:visibility="gone"
                 android:textAppearance="@style/TextAppearance.AppCompat"
                 android:textSize="@dimen/font_size_customize_options"
                 app:layout_constraintStart_toStartOf="parent"

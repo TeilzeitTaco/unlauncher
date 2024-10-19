@@ -6,9 +6,7 @@
         <item>Праворуч</item>
     </string-array>
     <string-array name="clock_type_array">
-        <item>Без годинника</item>
         <item>Цифровий</item>
-        <item>Стрілочний</item>
         <item>Двійковий</item>
     </string-array>
     <string-array name="quick_button_array">

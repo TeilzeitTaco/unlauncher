@@ -4,7 +4,9 @@ import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -232,9 +234,31 @@ class OptionsFragment : BaseFragment() {
                         "${sdf.format(m.date)}:\n${
                             m.packageName.replace("com.", "").replace("google.android.", "")
                         }"
-                    })
+                    }.ifEmpty { "(none)" })
                 create()
                 show()
+            }
+        }
+
+        var f = 0
+        optionsFragment.fleuron.setOnClickListener {
+            optionsFragment.fleuron.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            optionsFragment.fleuron.text = "❀"
+            if (f++ == 0) return@setOnClickListener
+
+            optionsFragment.fleuron.textScaleX += 0.333f
+            if (f == 33) {
+                Toast.makeText(requireContext(),"don't gild the lily...", Toast.LENGTH_LONG).show()
+                val handler = Handler(requireContext().mainLooper)
+                handler.post(object : Runnable {
+                    override fun run() {
+                        optionsFragment.fleuron.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                        optionsFragment.fleuron.textScaleX -= 0.333f
+                        if (--f > 1) {
+                            handler.postDelayed(this, 50)
+                        }
+                    }
+                })
             }
         }
     }

@@ -1,8 +1,16 @@
 package com.sduduzog.slimlauncher.adapters
 
 import android.annotation.SuppressLint
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Paint.FontMetricsInt
+import android.graphics.Typeface
 import android.text.Editable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextWatcher
+import android.text.style.ReplacementSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -17,6 +25,7 @@ import com.sduduzog.slimlauncher.ui.main.HomeFragment
 import com.sduduzog.slimlauncher.utils.firstUppercase
 import com.sduduzog.slimlauncher.utils.gravity
 import com.sduduzog.slimlauncher.utils.isPinnedApp
+import kotlin.math.ceil
 
 
 class AppDrawerAdapter(
@@ -175,8 +184,11 @@ class AppDrawerAdapter(
     }
 
     private var offset = 0
+    private val categoryRegex = Regex("^([^ ]+):(.+)$")
+    private val spaceRegex = Regex(" +")
 
     inner class ItemViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+
         val item: TextView = itemView.findViewById(R.id.aa_list_item_app_name)
 
         override fun toString(): String {
@@ -190,8 +202,22 @@ class AppDrawerAdapter(
                 this.item.gravity = Gravity.LEFT
                 if (position + 1 > offset)
                     offset = position + 1
+
             } else {
-                this.item.text = "${item.displayName.lowercase()} ${(position + 1 - offset).toString().padStart(3)}."
+                val normalizedDisplayName = spaceRegex.replace(item.displayName.lowercase(), " ")
+                    .trim().replace("[", "(").replace("]", ")")
+
+                this.item.text = SpannableStringBuilder().apply {
+                    (categoryRegex.find(normalizedDisplayName)?.also {
+                        val (_, category, name) = it.groupValues
+                        append(name.trim())
+                        append(" [ ")
+                        append(category.trim().uppercase(), StyleSpan(Typeface.ITALIC), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    }) ?: append(normalizedDisplayName)
+                    append(" ${(position + 1 - offset).toString().padStart(3)}", MonospaceSpan(" 0123456789"), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    append(".")
+                }
+
                 this.item.gravity = Gravity.RIGHT
             }
         }
@@ -219,4 +245,66 @@ sealed class AppDrawerRow(val rowType: RowType) {
     data class Item(val app: UnlauncherApp) : AppDrawerRow(RowType.App)
 
     data class Header(val letter: String) : AppDrawerRow(RowType.Header)
+}
+
+
+// taken from https://github.com/ChrisRenke/FixedSpans/blob/master/fixed-spans/src/com/chrisrenke/fixedspans/MonospaceSpan.java
+/** A [ReplacementSpan] that monospaces single-line text.  */
+class MonospaceSpan : ReplacementSpan {
+    private val relativeCharacters: String?
+    private val squish = 0.945f  // push chars together a bit
+
+    /**
+     * Set the `relativeMonospace` flag to true to monospace based on the widest character
+     * in the content string; false will base the monospace on the widest width of 'M' or 'W'.
+     */
+    constructor(relativeMonospace: Boolean) {
+        this.relativeCharacters = if (relativeMonospace) null else REFERENCE_CHARACTERS
+    }
+
+    /** Use the widest character from `relativeCharacters` to determine monospace width.  */
+    constructor(relativeCharacters: String = REFERENCE_CHARACTERS) {
+        this.relativeCharacters = relativeCharacters
+    }
+
+    override fun getSize(
+        paint: Paint, text: CharSequence,
+        start: Int, end: Int,
+        fm: FontMetricsInt?
+    ): Int {
+        if (fm != null)
+            paint.getFontMetricsInt(fm)
+
+        return ceil(((end - start) * getMonoWidth(paint, text.subSequence(start, end))).toDouble())
+            .toInt()
+    }
+
+    override fun draw(
+        canvas: Canvas, text: CharSequence, start: Int, end: Int, x: Float, top: Int, y: Int,
+        bottom: Int, paint: Paint
+    ) {
+        val actualText = text.subSequence(start, end)
+        val monoWidth = getMonoWidth(paint, actualText)
+        for (i in actualText.indices) {
+            val textWidth = paint.measureText(actualText, i, i + 1)
+            val halfFreeSpace = (textWidth - monoWidth) / 2f
+            canvas.drawText(
+                actualText,
+                i, i + 1,
+                x + (monoWidth * i) - halfFreeSpace,
+                y.toFloat(),
+                paint
+            )
+        }
+    }
+
+    private fun getMonoWidth(paint: Paint, text: CharSequence): Float {
+        (relativeCharacters ?: text).also {
+            return it.mapIndexed { i, _ -> paint.measureText(it, i, i + 1) * squish }.max()
+        }
+    }
+
+    companion object {
+        private const val REFERENCE_CHARACTERS = "MW"
+    }
 }
