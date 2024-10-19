@@ -62,6 +62,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.Navigation
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.jhlabs.image.Gradient
 import com.jkuester.unlauncher.datastore.ClockType
 import com.jkuester.unlauncher.datastore.SearchBarPosition
@@ -160,6 +161,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     private var bibleQuoteView: TextView? = null
     private var bibleQuoteSourceView: TextView? = null
     private var homeAppList: List<HomeApp> = ArrayList()
+    private var appDrawerFragmentList: RecyclerView? = null
 
     private fun distributeApps() {
         if (homeAppList.size > 3) {
@@ -210,7 +212,9 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
         setEventListeners()
 
-        homeFragmentContent.appDrawerFragmentList.adapter = appDrawerAdapter
+        appDrawerFragmentList = homeFragmentContent.appDrawerFragmentList.also {
+            it.adapter = appDrawerAdapter
+        }
 
         unlauncherDataSource.corePreferencesRepo.liveData().observe(
             viewLifecycleOwner
@@ -579,6 +583,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         shuffleHomeApps()
         getRandomShuffleImage()
         homeFragment.transitionToStart()
+        appDrawerFragmentList?.scrollToPosition(0)
         return true
     }
 
