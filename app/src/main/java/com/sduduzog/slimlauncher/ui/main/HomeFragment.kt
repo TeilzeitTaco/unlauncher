@@ -848,7 +848,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
             val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
             val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), true)
-            val glitcher = Glitcher(scaled, 100, Random.nextInt(28, 48))
+            val glitcher = Glitcher(scaled, Random.nextInt(20, 75), Random.nextInt(28, 48))
 
             wallpaperBox?.apply {
                 if (handler == null) {

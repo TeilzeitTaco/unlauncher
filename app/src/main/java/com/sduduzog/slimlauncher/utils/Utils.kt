@@ -167,7 +167,7 @@ class Glitcher(private val baseBitmap: Bitmap, quality: Int, iterations: Int) {
 
     fun getNext(): Bitmap {
         undoLastChange()
-        return BitmapFactory.decodeByteArray(modifiedJpegBytes, 0, modifiedJpegBytes.size)
+        return BitmapFactory.decodeByteArray(modifiedJpegBytes, 0, modifiedJpegBytes.size) ?: baseBitmap
     }
 
     fun done() = modifiedIndices.isEmpty()
@@ -180,6 +180,7 @@ class Glitcher(private val baseBitmap: Bitmap, quality: Int, iterations: Int) {
             maxIndex = modifiedJpegBytes.size - jpegHeaderSize - 4
         }
 
+        modifiedIndices.shuffle()
         makeAMess(iterations + 1)
     }
 }
