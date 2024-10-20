@@ -908,7 +908,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         ksanaHandler.postDelayed({
             val xy = IntArray(2)
             bibleQuoteView!!.getLocationOnScreen(xy)
-            val lowerBound = xy[1] + bibleQuoteSourceView!!.height + bibleQuoteView!!.height + 130
+            val lowerBound = xy[1] + bibleQuoteSourceView!!.height + bibleQuoteView!!.height + 140
             val screenHeight = getScreenHeight(requireActivity())
             Log.e("BIBLEQUOTE", "$lowerBound, $screenHeight")
             if (lowerBound < screenHeight) {
@@ -919,7 +919,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
                 updateBibleQuote(retry + 1, verse.second.count { it == ' ' })  // try again, hope for a shorter verse
             }
-        }, 5)
+        }, 50)
     }
 
     private var currentBibleVerse: Pair<String, String>? = null
