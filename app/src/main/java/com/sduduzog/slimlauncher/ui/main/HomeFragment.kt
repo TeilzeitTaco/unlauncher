@@ -86,6 +86,7 @@ import com.sduduzog.slimlauncher.models.HomeApp
 import com.sduduzog.slimlauncher.models.MainViewModel
 import com.sduduzog.slimlauncher.ui.dialogs.RenameAppDisplayNameDialog
 import com.sduduzog.slimlauncher.utils.BaseFragment
+import com.sduduzog.slimlauncher.utils.Glitcher
 import com.sduduzog.slimlauncher.utils.OnLaunchAppListener
 import com.sduduzog.slimlauncher.utils.isSystemApp
 import dagger.hilt.android.AndroidEntryPoint
@@ -847,8 +848,20 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
             val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
             val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), true)
+            val glitcher = Glitcher(scaled, 100, Random.nextInt(28, 48))
+
             wallpaperBox?.apply {
-                setImageBitmap(scaled)
+                if (handler == null) {
+                    setImageBitmap(scaled)
+                } else handler.post(object : Runnable {
+                    override fun run() {
+                        setImageBitmap(glitcher.getNext())
+                        if (!glitcher.done()) {
+                            handler.postDelayed(this, if (Random.nextFloat() > 0.867) Random.nextLong(10, 80) else 10)
+                        }
+                    }
+                })
+
                 setOnClickListener {
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     val sdf = SimpleDateFormat("dd.MM.YYYY, HH:mm:ss")

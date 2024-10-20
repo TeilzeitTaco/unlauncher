@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Insets
 import android.graphics.Rect
 import android.os.Build
@@ -16,6 +18,9 @@ import android.view.WindowInsets
 import androidx.annotation.StringRes
 import com.jkuester.unlauncher.datastore.AlignmentFormat
 import com.sduduzog.slimlauncher.R
+import java.io.ByteArrayOutputStream
+import kotlin.math.min
+import kotlin.random.Random
 
 private fun isAppDefaultLauncher(context: Context?): Boolean {
     val intent = Intent(Intent.ACTION_MAIN)
@@ -125,4 +130,56 @@ fun AlignmentFormat.gravity(): Int = when (this.number) {
 
 fun isPinnedApp(packageName: String): Boolean {
     return packageName == "com.spotify.music" || packageName == "at.rsg.pfp" || packageName == "com.google.android.apps.photos"
+}
+
+
+class Glitcher(private val baseBitmap: Bitmap, quality: Int, iterations: Int) {
+    private lateinit var unmodifiedJpegBytes: ByteArray
+    private val modifiedIndices = ArrayList<Int>()
+    private val modifiedJpegBytes: ByteArray
+    private val maxIndex: Int
+
+    private val jpegHeaderSize: Int by lazy {
+        for (i in unmodifiedJpegBytes.indices)
+            if (unmodifiedJpegBytes[i].toInt() == 255 && unmodifiedJpegBytes[i + 1].toInt() == 218)
+                return@lazy i + 2
+
+        return@lazy 417
+    }
+
+    private fun undoLastChange() {
+        if (modifiedIndices.isNotEmpty()) {
+            val i = modifiedIndices.removeLast()
+            modifiedJpegBytes[i] = unmodifiedJpegBytes[i]
+        }
+    }
+
+    private fun makeAMess(iterations: Int) {
+        val perIteration = maxIndex / iterations
+        for (i in 0..iterations) {
+            val delta = perIteration * Random.nextFloat()
+            val offset = perIteration * i + delta.toInt()
+            val pxIndex = jpegHeaderSize + min(offset, maxIndex)
+            modifiedIndices.add(pxIndex)  // so we can undo this later
+            modifiedJpegBytes[pxIndex] = Random.nextInt().toByte()
+        }
+    }
+
+    fun getNext(): Bitmap {
+        undoLastChange()
+        return BitmapFactory.decodeByteArray(modifiedJpegBytes, 0, modifiedJpegBytes.size)
+    }
+
+    fun done() = modifiedIndices.isEmpty()
+
+    init {
+        ByteArrayOutputStream().use {
+            baseBitmap.compress(Bitmap.CompressFormat.JPEG, quality, it)
+            unmodifiedJpegBytes = it.toByteArray()
+            modifiedJpegBytes = unmodifiedJpegBytes.clone()
+            maxIndex = modifiedJpegBytes.size - jpegHeaderSize - 4
+        }
+
+        makeAMess(iterations + 1)
+    }
 }
