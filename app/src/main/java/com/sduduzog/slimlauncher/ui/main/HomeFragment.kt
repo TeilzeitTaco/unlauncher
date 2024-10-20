@@ -88,6 +88,7 @@ import com.sduduzog.slimlauncher.ui.dialogs.RenameAppDisplayNameDialog
 import com.sduduzog.slimlauncher.utils.BaseFragment
 import com.sduduzog.slimlauncher.utils.Glitcher
 import com.sduduzog.slimlauncher.utils.OnLaunchAppListener
+import com.sduduzog.slimlauncher.utils.getScreenHeight
 import com.sduduzog.slimlauncher.utils.isSystemApp
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -884,29 +885,41 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         updateBibleQuote()
     }
 
-    private fun updateBibleQuote(retry: Int = 0) {
+    private fun updateBibleQuote(retry: Int = 0, maxWords: Int = -1) {
         bibleVerses.ifEmpty { return }
         bibleQuoteView?: return
+        bibleQuoteSourceView?: return
         if (retry >= 64) {  // picture too big to fit any verse, it seems; give up
             bibleQuoteView?.text = ""
             bibleQuoteSourceView?.text = ""
             return
         }
 
-        setBibleQuote(bibleVerses.random())
+        bibleQuoteView!!.setTextColor(0)
+        bibleQuoteSourceView!!.setTextColor(0)
+
+        // find a verse shorter than the last one we tried.
+        var verse = bibleVerses.random()
+        while (maxWords > 0 && verse.second.count { it == ' ' } > maxWords)
+            verse = bibleVerses.random()
+        setBibleQuote(verse)
 
         // check if the text is too long and retry if it is
         ksanaHandler.postDelayed({
-            requireActivity().runOnUiThread {
-                val xy = IntArray(2)
-                bibleQuoteView!!.getLocationOnScreen(xy)
-                val displayHeight = requireActivity().windowManager.defaultDisplay.height
-                if ((xy[1] + bibleQuoteView!!.height + 150) > displayHeight) {
-                    // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
-                    updateBibleQuote(retry + 1)  // try again, hope for a shorter verse
-                }
+            val xy = IntArray(2)
+            bibleQuoteView!!.getLocationOnScreen(xy)
+            val lowerBound = xy[1] + bibleQuoteSourceView!!.height + bibleQuoteView!!.height + 130
+            val screenHeight = getScreenHeight(requireActivity())
+            Log.e("BIBLEQUOTE", "$lowerBound, $screenHeight")
+            if (lowerBound < screenHeight) {
+                val red = resources.getColor(R.color.fnDarkRed)
+                bibleQuoteView!!.setTextColor(red)
+                bibleQuoteSourceView!!.setTextColor(red)
+            } else {
+                // Toast.makeText(requireContext(), "Too long...", Toast.LENGTH_SHORT).show()
+                updateBibleQuote(retry + 1, verse.second.count { it == ' ' })  // try again, hope for a shorter verse
             }
-        }, 1)
+        }, 5)
     }
 
     private var currentBibleVerse: Pair<String, String>? = null
