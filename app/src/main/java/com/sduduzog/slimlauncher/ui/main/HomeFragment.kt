@@ -908,7 +908,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         ksanaHandler.postDelayed({
             val xy = IntArray(2)
             bibleQuoteView!!.getLocationOnScreen(xy)
-            val lowerBound = xy[1] + bibleQuoteSourceView!!.height + bibleQuoteView!!.height + 140
+            val lowerBound = xy[1] + bibleQuoteSourceView!!.height + bibleQuoteView!!.height + 135
             val screenHeight = getScreenHeight(requireActivity())
             Log.e("BIBLEQUOTE", "$lowerBound, $screenHeight")
             if (lowerBound < screenHeight) {

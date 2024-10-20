@@ -211,8 +211,11 @@ class AppDrawerAdapter(
                     (categoryRegex.find(normalizedDisplayName)?.also {
                         val (_, category, name) = it.groupValues
                         append(name.trim())
-                        append(" [ ")
-                        append(category.trim().uppercase(), StyleSpan(Typeface.ITALIC), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        if (offset > 0) {
+                            // don't show categories on query
+                            append(" [ ")
+                            append(category.trim().uppercase(), StyleSpan(Typeface.ITALIC), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        }
                     }) ?: append(normalizedDisplayName)
                     append(" ${(position + 1 - offset).toString().padStart(3)}", MonospaceSpan(" 0123456789"), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     append(".")
