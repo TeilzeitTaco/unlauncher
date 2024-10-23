@@ -743,7 +743,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
         else {
             appsClickable = false
-            Toast.makeText(context, "invoking ${packageName}...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "invoking $packageName...", Toast.LENGTH_SHORT).show()
             homeFragment.transitionToStart()
             handler.postDelayed({
                 Toast.makeText(context, "take care...", Toast.LENGTH_LONG).show()
