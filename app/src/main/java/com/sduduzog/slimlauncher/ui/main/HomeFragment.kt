@@ -470,7 +470,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             appDrawerAdapter.AppDrawerTextWatcher { app ->
                 // this is called when a query has only one result
                 Toast.makeText(requireContext(), "quick-launching ${app.packageName}...", Toast.LENGTH_LONG).show()
-                launchApp(app.packageName, app.className, app.userSerial)
+                launchAppRestricted(app.packageName, app.className, app.userSerial)
             }
         )
 
@@ -934,8 +934,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             // Toast.makeText(requireContext(), matchResult.value, Toast.LENGTH_LONG).show()
             matchResult.value.replace(" ", "\u00A0")
         }.replace(";", ";\n")
-        bibleQuoteView!!.text = "» $solidVerse\u00A0«"  // this is a &nbsp;
-        bibleQuoteSourceView!!.text = "— ${verse.first} "
+        bibleQuoteView!!.text = "»\u00A0$solidVerse\u00A0«"  // this is a &nbsp;
+        bibleQuoteSourceView!!.text = "—\u00A0${verse.first}"
     }
 
     private fun showNextVerse() {
