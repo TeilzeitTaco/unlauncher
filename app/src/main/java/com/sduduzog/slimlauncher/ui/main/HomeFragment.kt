@@ -467,7 +467,11 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             }
 
         homeFragmentContent.appDrawerEditText.addTextChangedListener(
-            appDrawerAdapter.searchBoxListener
+            appDrawerAdapter.AppDrawerTextWatcher { app ->
+                // this is called when a query has only one result
+                Toast.makeText(requireContext(), "quick-launching ${app.packageName}...", Toast.LENGTH_LONG).show()
+                launchApp(app.packageName, app.className, app.userSerial)
+            }
         )
 
         // apply gravity to search box

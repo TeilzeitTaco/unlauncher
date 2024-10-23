@@ -169,7 +169,7 @@ class AppDrawerAdapter(
         }
     }
 
-    val searchBoxListener: TextWatcher = object : TextWatcher {
+    inner class AppDrawerTextWatcher(val callback: (UnlauncherApp) -> Unit) : TextWatcher {
         override fun afterTextChanged(s: Editable?) {
             // Do nothing
         }
@@ -180,6 +180,10 @@ class AppDrawerAdapter(
 
         override fun onTextChanged(s: CharSequence, start: Int, before: Int, count: Int) {
             setAppFilter(s.toString())
+            if (filteredApps.size == 1) {
+                // only one result, call callback
+                callback((filteredApps.first() as AppDrawerRow.Item).app)
+            }
         }
     }
 
