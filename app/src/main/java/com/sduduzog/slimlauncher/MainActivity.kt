@@ -375,7 +375,8 @@ fun isFastTrackApp(packageName: String): Boolean {
             l.contains("settings") || l.contains("whatsapp") ||
             l.contains("apps.maps") ||  // google maps
             l.contains(".oebb") ||  // railway tickets etc.
-            l.contains("railanddrive")
+            l.contains("railanddrive") ||
+            l.contains("moshbit.studo")  // university
 }
 
 fun shouldBeSoftForbidden(packageName: String): Boolean {

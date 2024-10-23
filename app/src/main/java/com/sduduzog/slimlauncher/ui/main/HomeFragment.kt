@@ -930,8 +930,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             // Toast.makeText(requireContext(), matchResult.value, Toast.LENGTH_LONG).show()
             matchResult.value.replace(" ", "\u00A0")
         }.replace(";", ";\n")
-        val formattedVerse = "» ${solidVerse}\u00A0«"  // this is a &nbsp;
-        bibleQuoteView!!.text = formattedVerse
+        bibleQuoteView!!.text = "» $solidVerse\u00A0«"  // this is a &nbsp;
         bibleQuoteSourceView!!.text = "— ${verse.first} "
     }
 
