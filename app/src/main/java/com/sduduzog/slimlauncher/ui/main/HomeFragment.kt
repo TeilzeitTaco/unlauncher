@@ -317,6 +317,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onResume() {
         super.onResume()
+        onBackCounter = 0
         updateClockAndDate()
         shuffleHomeApps()
 
@@ -593,10 +594,13 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         launchAppRestricted(app.packageName, app.activityName, app.userSerial)
     }
 
+    private var onBackCounter = 0
+
     override fun onBack(): Boolean {
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         shuffleHomeApps()
         getRandomShuffleImage()
+        onBackCounter++
         homeFragment.transitionToStart()
         appDrawerFragmentList?.scrollToPosition(0)
         return true
@@ -885,7 +889,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                             // prevent too fast swiping
                             handler.postDelayed({
                                 isGlitcherDone = true
-                            }, Random.nextLong(3_000L, 6_000L))
+                            }, Random.nextLong(1_500L, 3_000L) + onBackCounter * 150L)
                         }
                     }
                 })
