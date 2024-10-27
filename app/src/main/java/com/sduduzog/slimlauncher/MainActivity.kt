@@ -1,6 +1,7 @@
 package com.sduduzog.slimlauncher
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.AppOpsManager
@@ -28,6 +29,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityManager
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -420,7 +422,6 @@ class OverlayService : AccessibilityService() {
     class LogMessage(val date: Date, val packageName: String)
 
     companion object {
-        private var running = false
         private var resumeAlpha = 0f
         private var allowedPackage: String? = null
 
@@ -434,7 +435,16 @@ class OverlayService : AccessibilityService() {
             resumeAlpha = 0f
         }
 
-        fun isRunning() = running
+        fun isRunning(context: Context): Boolean {
+            val thisService = context.packageName
+            val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+            am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).forEach {
+                if (it.resolveInfo.serviceInfo.packageName == thisService) {
+                    return true
+                }
+            }
+            return false
+        }
     }
 
     private val updateHandler = Handler(Looper.getMainLooper())
@@ -512,7 +522,6 @@ class OverlayService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(S_TAG, super.toString())
-        running = true
 
         keyguardManager = applicationContext.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         vibrator = applicationContext.getSystemService(Vibrator::class.java)

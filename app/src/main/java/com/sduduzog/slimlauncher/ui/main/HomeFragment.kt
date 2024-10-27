@@ -468,9 +468,10 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
         homeFragmentContent.appDrawerEditText.addTextChangedListener(
             appDrawerAdapter.AppDrawerTextWatcher { app ->
-                // this is called when a query has only one result
-                Toast.makeText(requireContext(), "quick-launching ${app.packageName}...", Toast.LENGTH_LONG).show()
-                launchAppRestricted(app.packageName, app.className, app.userSerial)
+                // in a bit of a convoluted manner, this is called when a query has only one result
+                Toast.makeText(requireContext(), "launching sole query result...", Toast.LENGTH_SHORT).show()
+                launchAppRestricted(app.packageName, app.className, app.userSerial,
+                    ensureLaunchOccurs = true)
             }
         )
 
@@ -639,7 +640,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     private var appsClickable = true
-    private fun launchAppRestricted(packageName: String, className: String, userSerial: Long) {
+    private fun launchAppRestricted(packageName: String, className: String, userSerial: Long,
+                                    ensureLaunchOccurs: Boolean = false) {
         if (!appsClickable) {
             Toast.makeText(context, "we are already busy...", Toast.LENGTH_SHORT).show()
             return
@@ -650,10 +652,10 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             launchApp(packageName, className, userSerial)
             return
         }
-        else if (!OverlayService.isRunning()) {
+        else if (!OverlayService.isRunning(requireContext())) {
             Toast.makeText(context, "service not running...", Toast.LENGTH_LONG).show()
             return
-        } else if (Random.nextFloat() < 0.8)
+        } else if (!ensureLaunchOccurs && Random.nextFloat() < 0.75)
             return  // haha
 
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
@@ -844,16 +846,31 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         imageUris.shuffle()
     }
 
+
+    private var isGlitcherDone = true
+    private val WALLPAPER_BITMAP_WIDTH = 500
+
+
     private fun getRandomShuffleImage() {
+        if (!isGlitcherDone) return
+        if (!OverlayService.isRunning(requireContext())) {
+            setOverlayServiceReminderPicture()
+            return
+        }
+
         // we show each image once before repeating
         imageUris.ifEmpty { fetchImageUris() }
         if (imageUris.isNotEmpty()) {
+            wallpaperBox ?: return
+
             val chosenPicture = imageUris.removeFirst()
             val inputStream = requireContext().contentResolver.openInputStream(chosenPicture.second)
             val bitmap = Drawable.createFromStream(inputStream, chosenPicture.first)?.toBitmap()?: return
             val ratio = bitmap.height.toFloat() / bitmap.width.toFloat()
-            val scaled = Bitmap.createScaledBitmap(bitmap, 500, (500 * ratio).toInt(), true)
-            val glitcher = Glitcher(scaled, Random.nextInt(20, 75), Random.nextInt(28, 48))
+            val scaled = Bitmap.createScaledBitmap(bitmap, WALLPAPER_BITMAP_WIDTH, (WALLPAPER_BITMAP_WIDTH * ratio).toInt(), true)
+            val glitcher = Glitcher(scaled, Random.nextInt(25, 75), Random.nextInt(16, 48)).also {
+                isGlitcherDone = false
+            }
 
             wallpaperBox?.apply {
                 if (handler == null) {
@@ -862,7 +879,13 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                     override fun run() {
                         setImageBitmap(glitcher.getNext())
                         if (!glitcher.done()) {
-                            handler.postDelayed(this, if (Random.nextFloat() > 0.867) Random.nextLong(10, 80) else 10)
+                            handler.postDelayed(this, if (Random.nextFloat() > 0.867)
+                                Random.nextLong(10, 80) else 10)
+                        } else {
+                            // prevent too fast swiping
+                            handler.postDelayed({
+                                isGlitcherDone = true
+                            }, Random.nextLong(3_000L, 6_000L))
                         }
                     }
                 })
@@ -876,6 +899,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 }
 
                 setOnLongClickListener {
+                    isGlitcherDone = true  // so i can unfreeze if the logic fails
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     startActivity(Intent().apply {
                         setAction(Intent.ACTION_VIEW)
@@ -887,6 +911,18 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         }
 
         updateBibleQuote()
+    }
+
+    private fun setOverlayServiceReminderPicture() {
+        val bm = requireContext().resources.getDrawable(R.drawable.alone).toBitmap(180, 252)
+        wallpaperBox?.setImageBitmap(bm)
+        wallpaperBox?.setOnClickListener {
+            wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            Toast.makeText(requireContext(), "<3", Toast.LENGTH_LONG).show()
+        }
+
+        bibleQuoteView?.text = "enable service in settings\n-> accessibility\n-> unlauncher..."
+        bibleQuoteSourceView?.text = "\u00a0take care, i love you"
     }
 
     private fun updateBibleQuote(retry: Int = 0, maxWords: Int = -1) {
