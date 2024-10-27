@@ -607,6 +607,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     }
 
     override fun onHome() {
+        onBackCounter = 0
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         shuffleHomeApps()
         homeFragment.transitionToStart()
@@ -889,7 +890,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                             // prevent too fast swiping
                             handler.postDelayed({
                                 isGlitcherDone = true
-                            }, Random.nextLong(1_500L, 3_000L) + onBackCounter * 150L)
+                            }, Random.nextLong(1_500L, 3_000L) + onBackCounter * 300L)
                         }
                     }
                 })
