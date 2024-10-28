@@ -119,14 +119,15 @@ class OptionsFragment : BaseFragment() {
             Toast.makeText(context, "Contacting server...", Toast.LENGTH_LONG).show()
         }
 
-        fun errorOnUi() {
+        fun errorOnUi(callback: () -> (Unit)) {
             activity?.runOnUiThread {
                 Toast.makeText(context ?: return@runOnUiThread,
                     "Error connecting to server!", Toast.LENGTH_LONG).show()
+                callback()
             }
         }
 
-        fun showLastNumbers() {
+        fun showLastNumbers(callback: () -> (Unit)) {
             waitToast()
             val request = Request.Builder()
                 .url("https://flesh-network.ddns.net/raw_last_numbers")
@@ -134,7 +135,7 @@ class OptionsFragment : BaseFragment() {
 
             ok.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: okhttp3.Call, e: IOException) {
-                    errorOnUi()
+                    errorOnUi(callback)
                 }
 
                 override fun onResponse(call: okhttp3.Call, response: Response) {
@@ -142,7 +143,7 @@ class OptionsFragment : BaseFragment() {
                     activity?.runOnUiThread {
                         AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
                             .apply {
-                                setPositiveButton("Affirm") { _, _ -> }
+                                setPositiveButton("Affirm") { _, _ -> callback() }
                                 setTitle("Last Series Numbers")
                                 setMessage("The last document numbers are:\n\n$result")
                                 create()
@@ -153,16 +154,24 @@ class OptionsFragment : BaseFragment() {
             })
         }
 
-        fun doRawQuery() {
-            val input = EditText(requireContext())
+        fun doRawQuery(callback: () -> (Unit)) {
+            val input = EditText(requireContext()).apply {
+                setSingleLine()
+                hint = "Enter query..."
+            }
             AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
                 .setTitle("Perform Raw Query")
-                .setMessage("Enter query:")
+                .setMessage("The server will be queried with the supplied query string.")
                 .setView(input)
                 .setPositiveButton(
                     "Affirm"
                 ) { _, _ ->
                     val query = input.text.trim()
+                    query.ifEmpty {
+                        callback()
+                        return@setPositiveButton
+                    }
+
                     waitToast()
                     val request = Request.Builder()
                         .url("https://flesh-network.ddns.net/raw_query/$query")
@@ -170,7 +179,7 @@ class OptionsFragment : BaseFragment() {
 
                     ok.newCall(request).enqueue(object : Callback {
                         override fun onFailure(call: okhttp3.Call, e: IOException) {
-                            errorOnUi()
+                            errorOnUi(callback)
                         }
 
                         override fun onResponse(call: okhttp3.Call, response: Response) {
@@ -178,7 +187,7 @@ class OptionsFragment : BaseFragment() {
                             activity?.runOnUiThread {
                                 AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
                                     .apply {
-                                        setPositiveButton("Affirm") { _, _ -> }
+                                        setPositiveButton("Affirm") { _, _ -> callback() }
                                         setTitle("Raw Query Results")
                                         setMessage("The results of the query \"$query\" are:\n\n${result}")
                                         create()
@@ -188,40 +197,52 @@ class OptionsFragment : BaseFragment() {
                         }
                     })
                 }
-                .setNegativeButton("Cancel") { _, _ -> }.show()
+                .setNegativeButton("Cancel") { _, _ -> callback() }.show()
         }
 
-        fun resolveTag() {
-            val input = EditText(requireContext())
+        fun resolveTag(callback: () -> (Unit)) {
+            val input = EditText(requireContext()).apply {
+                setSingleLine()
+                hint = "Enter tag..."
+            }
             AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme)
                 .setTitle("Resolve Tag")
-                .setMessage("Enter tag to resolve:")
+                .setMessage("The server will be asked to resolve the supplied tag.")
                 .setView(input)
                 .setPositiveButton(
                     "Affirm"
                 ) { _, _ ->
                     val tag = input.text.trim().toString().lowercase()
+                    tag.ifEmpty {
+                        callback()
+                        return@setPositiveButton
+                    }
+
                     Intent(Intent.ACTION_VIEW).also {
                         it.setData(Uri.parse("https://flesh-network.ddns.net/resolve/$tag"))
                         startActivity(it)
                     }
                 }
-                .setNegativeButton("Cancel") { _, _ -> }.show()
+                .setNegativeButton("Cancel") { _, _ -> callback() }.show()
         }
 
-        // fn ops, implemented ksana7312.52508602384
-        optionsFragment.optionsFragmentShowFnOptions.setOnClickListener {
+        fun showFnOptions() {
             AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme).setItems(
                 arrayOf("1. Perform Raw Query", "2. Show Last Numbers", "3. Resolve Tag")
             ) { _, which ->
                 when (which) {
-                    0 -> doRawQuery()
-                    1 -> showLastNumbers()
-                    2 -> resolveTag()
+                    0 -> doRawQuery { showFnOptions() }
+                    1 -> showLastNumbers { showFnOptions() }
+                    2 -> resolveTag { showFnOptions() }
                 }
             }.setPositiveButton("Exit") { _, _ -> }
                 .setTitle("Perform Flesh-Network Action")
                 .create().show()
+        }
+
+        // fn ops, implemented ksana7312.52508602384
+        optionsFragment.optionsFragmentShowFnOptions.setOnClickListener {
+            showFnOptions()
         }
 
         val sdf = SimpleDateFormat("MM/dd HH:mm:ss")
