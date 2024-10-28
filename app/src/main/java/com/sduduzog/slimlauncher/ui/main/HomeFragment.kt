@@ -919,10 +919,13 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
 
     private fun setOverlayServiceReminderPicture() {
         val bm = requireContext().resources.getDrawable(R.drawable.alone).toBitmap(180, 252)
-        wallpaperBox?.setImageBitmap(bm)
-        wallpaperBox?.setOnClickListener {
-            wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-            Toast.makeText(requireContext(), "<3", Toast.LENGTH_LONG).show()
+        wallpaperBox?.apply {
+            setOnLongClickListener(null)  // clear gallery opener
+            setImageBitmap(bm)
+            setOnClickListener {
+                wallpaperBox?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                Toast.makeText(requireContext(), "<3", Toast.LENGTH_LONG).show()
+            }
         }
 
         bibleQuoteView?.text = "enable service in settings\n-> accessibility\n-> unlauncher..."
