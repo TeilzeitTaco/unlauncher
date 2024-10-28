@@ -318,6 +318,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     override fun onResume() {
         super.onResume()
         onBackCounter = 0
+        isGlitcherDone = true
         updateClockAndDate()
         shuffleHomeApps()
 
@@ -851,10 +852,8 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         imageUris.shuffle()
     }
 
-
     private var isGlitcherDone = true
     private val WALLPAPER_BITMAP_WIDTH = 500
-
 
     private fun getRandomShuffleImage() {
         if (!isGlitcherDone) return
