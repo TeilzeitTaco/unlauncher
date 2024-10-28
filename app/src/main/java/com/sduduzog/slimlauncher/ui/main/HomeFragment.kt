@@ -1087,7 +1087,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                             ).first
                             ImageIO.write(rotated, "png", filteredImageOutputStream)
 
-                            activity?.runOnUiThread {
+                            activity?.runOnUiThread {  // <3
                                 Toast.makeText(context ?: return@runOnUiThread,
                                     "#COLDVISIONS", Toast.LENGTH_SHORT).show()
                             }
