@@ -168,6 +168,7 @@ class OptionsFragment : BaseFragment() {
                 ) { _, _ ->
                     val query = input.text.trim()
                     query.ifEmpty {
+                        Toast.makeText(requireContext(), "empty query!", Toast.LENGTH_LONG).show()
                         callback()
                         return@setPositiveButton
                     }
@@ -214,6 +215,7 @@ class OptionsFragment : BaseFragment() {
                 ) { _, _ ->
                     val tag = input.text.trim().toString().lowercase()
                     tag.ifEmpty {
+                        Toast.makeText(requireContext(), "empty tag!", Toast.LENGTH_LONG).show()
                         callback()
                         return@setPositiveButton
                     }
@@ -226,14 +228,22 @@ class OptionsFragment : BaseFragment() {
                 .setNegativeButton("Cancel") { _, _ -> callback() }.show()
         }
 
+        fun openWebsite() {
+            Intent(Intent.ACTION_VIEW).also {
+                it.setData(Uri.parse("https://flesh-network.ddns.net/"))
+                startActivity(it)
+            }
+        }
+
         fun showFnOptions() {
             AlertDialog.Builder(requireContext(), R.style.AppFleshNetworkDialogTheme).setItems(
-                arrayOf("1. Perform Raw Query", "2. Show Last Numbers", "3. Resolve Tag")
+                arrayOf("1. Perform Raw Query", "2. Show Last Numbers", "3. Resolve Tag", "4. Open Website")
             ) { _, which ->
                 when (which) {
                     0 -> doRawQuery { showFnOptions() }
                     1 -> showLastNumbers { showFnOptions() }
                     2 -> resolveTag { showFnOptions() }
+                    3 -> openWebsite()
                 }
             }.setPositiveButton("Exit") { _, _ -> }
                 .setTitle("Perform Flesh-Network Action")
