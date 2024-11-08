@@ -254,7 +254,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             }
         }
 
-        getRandomShuffleImage()
+        updateRandomShuffleImage()
     }
 
     override fun onStart() {
@@ -336,7 +336,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
             appDrawerFragmentList.scrollToPosition(0)
         }
 
-        getRandomShuffleImage()
+        updateRandomShuffleImage()
     }
 
     private fun refreshApps() {
@@ -595,20 +595,32 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
         launchAppRestricted(app.packageName, app.activityName, app.userSerial)
     }
 
+    private val MAX_BACK_SWIPES = 7
     private var onBackCounter = 0
 
     override fun onBack(): Boolean {
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         shuffleHomeApps()
-        getRandomShuffleImage()
-        onBackCounter++
+
+        if (isGlitcherDone) {
+            onBackCounter++
+            if (onBackCounter < MAX_BACK_SWIPES) {
+                updateRandomShuffleImage()
+            } else if (onBackCounter == MAX_BACK_SWIPES) {
+                Toast.makeText(context, "don't be so clingy...", Toast.LENGTH_LONG).show()
+                updateRandomShuffleImage()
+                ksanaHandler.postDelayed({
+                    onBackCounter = 0
+                }, Random.nextLong(12_000L, 24_000L))
+            }
+        }
+
         homeFragment.transitionToStart()
         appDrawerFragmentList?.scrollToPosition(0)
         return true
     }
 
     override fun onHome() {
-        onBackCounter = 0
         val homeFragment = HomeFragmentDefaultBinding.bind(requireView()).root
         shuffleHomeApps()
         homeFragment.transitionToStart()
@@ -855,8 +867,10 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
     private var isGlitcherDone = true
     private val WALLPAPER_BITMAP_WIDTH = 500
 
-    private fun getRandomShuffleImage() {
-        if (!isGlitcherDone) return
+    private fun updateRandomShuffleImage() {
+        if (!isGlitcherDone)
+            return
+        
         if (!OverlayService.isRunning(requireContext())) {
             setOverlayServiceReminderPicture()
             return
@@ -886,10 +900,9 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                             handler.postDelayed(this, if (Random.nextFloat() > 0.867)
                                 Random.nextLong(10, 80) else 10)
                         } else {
-                            // prevent too fast swiping
-                            handler.postDelayed({
+                            handler.postDelayed({  // prevent too fast swiping
                                 isGlitcherDone = true
-                            }, Random.nextLong(1_500L, 3_000L) + onBackCounter * 300L)
+                            }, Random.nextLong(400, 600L))
                         }
                     }
                 })
@@ -903,6 +916,7 @@ class HomeFragment : BaseFragment(), OnLaunchAppListener {
                 }
 
                 setOnLongClickListener {
+                    onBackCounter = 0
                     isGlitcherDone = true  // so i can unfreeze if the logic fails
                     performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     startActivity(Intent().apply {

@@ -483,10 +483,16 @@ class OverlayService : AccessibilityService() {
         event?.packageName ?: return
         val packageNameString = event.packageName.toString()
         if (packageNameString.contains("inputmethod") ||
-            packageNameString.contains("system") ||
-            packageNameString.contains("unlauncher")) {
+            packageNameString.contains("system")) {
             return  // keyboard etc.
         }
+
+        // only show blocker if we are on the home screen
+        if (packageNameString.contains("unlauncher")) {
+            blockerView?.visibility = View.VISIBLE
+            return
+        }
+        blockerView?.visibility = View.GONE
 
         if (activityLog.isEmpty() || activityLog.last().packageName != packageNameString)
             activityLog.add(LogMessage(Date(), packageNameString))
@@ -558,9 +564,11 @@ class OverlayService : AccessibilityService() {
         )
     }
 
+    private var blockerView: TextView? = null
+
     private fun addPillBlockerView() {
         // this hides the navigation pill on my google pixel 7a
-        val blockerView = TextView(applicationContext).apply {
+        blockerView = TextView(applicationContext).apply {
             setBackgroundColor(Color.BLACK)
             text = "flesh-network"
             setTextColor(0)
