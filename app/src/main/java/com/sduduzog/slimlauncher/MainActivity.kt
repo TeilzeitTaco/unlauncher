@@ -387,6 +387,7 @@ fun shouldBeSoftForbidden(packageName: String): Boolean {
         packageName.contains("unlauncher") ||
         packageName.contains("settings") ||
         packageName.contains("photos") ||
+        packageName.contains("xodo") ||  // .pdf viewer I need for uni
         packageName.contains("android.files") ||  // me.zhanghai.android.files
 
         // neither soft-bannable nor fast-track:
@@ -451,7 +452,7 @@ class OverlayService : AccessibilityService() {
     inner class OverlayUpdater : Runnable {
         override fun run() {
             resumeAlpha = min(resumeAlpha + 0.000_250f, 1f)
-            if (resumeAlpha > 0.90f) {
+            if (resumeAlpha > 0.90f && allowedPackage != null) {
                 // implemented ksana7312.53642268220: Attempt to kill the app.
                 val am = applicationContext.getSystemService(ACTIVITY_SERVICE) as ActivityManager
                 am.killBackgroundProcesses(allowedPackage)
